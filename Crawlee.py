@@ -12,6 +12,14 @@ import PyPDF2
 import openpyxl
 from werkzeug.utils import secure_filename
 
+# scholarly - handles Google Scholar anti-bot automatically
+try:
+    from scholarly import scholarly, ProxyGenerator
+    SCHOLARLY_AVAILABLE = True
+except ImportError:
+    SCHOLARLY_AVAILABLE = False
+    print("scholarly not installed - falling back to requests")
+
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 ALLOWED_EXTENSIONS = {'json', 'docx', 'pdf', 'txt', 'xlsx', 'xls', 'csv'}
@@ -181,123 +189,161 @@ def convert_document_to_json(file_path, filename, department="University of Lago
     staff_list = [{"name": name, "department": department} for name in names]
     return staff_list
 
+# ---------------------------------------------------------------------------
+# SCHOLARLY-BASED SCRAPING  (handles Google Scholar anti-bot automatically)
+# ---------------------------------------------------------------------------
+_scholarly_ready = False
+
+def _setup_scholarly():
+    """Configure scholarly with free proxy generator on first use."""
+    global _scholarly_ready
+    if _scholarly_ready or not SCHOLARLY_AVAILABLE:
+        return
+    try:
+        pg = ProxyGenerator()
+        # Use ScraperAPI free tier - rotates IPs automatically
+        success = pg.FreeProxies()
+        if success:
+            scholarly.use_proxy(pg)
+            print("[SCHOLARLY] Free proxy generator active")
+        else:
+            print("[SCHOLARLY] No proxies - using direct (may be blocked on cloud)")
+        _scholarly_ready = True
+    except Exception as e:
+        print(f"[SCHOLARLY] Proxy setup failed: {e} - continuing without proxy")
+        _scholarly_ready = True
+
 def get_scholar_id(name):
+    """Find Google Scholar user ID for a person using scholarly."""
+    _setup_scholarly()
+
+    if SCHOLARLY_AVAILABLE:
+        try:
+            query = f"{name} University of Lagos"
+            search_results = scholarly.search_author(query)
+            author = next(search_results, None)
+            if author:
+                # Verify the name matches
+                found_name = author.get('name', '').lower()
+                search_parts = name.lower().split()
+                if any(p in found_name for p in search_parts if len(p) > 3):
+                    return author.get('scholar_id')
+            return None
+        except StopIteration:
+            return None
+        except Exception as e:
+            print(f"[scholarly] Error searching {name}: {e}")
+            # Fall through to requests fallback
+
+    # Fallback: raw requests (works locally, may fail on cloud)
+    return _get_scholar_id_requests(name)
+
+def _get_scholar_id_requests(name):
+    """Raw requests fallback for get_scholar_id."""
     query = urllib.parse.quote(f"{name} University of Lagos")
     search_url = f"https://scholar.google.com/scholar?hl=en&q={query}"
-    
-    max_retries = 3
-    for attempt in range(max_retries):
+    for attempt in range(3):
         try:
-            # Add session for better connection handling
             session = requests.Session()
             session.headers.update(HEADERS)
-            
             response = session.get(search_url, timeout=15)
-            
-            if response.status_code == 429:  # Too many requests
+            if response.status_code == 429:
                 time.sleep(random.uniform(10, 15))
                 continue
-            
             if response.status_code != 200:
                 time.sleep(random.uniform(3, 5))
                 continue
-                
             soup = BeautifulSoup(response.text, "html.parser")
             profile_link = soup.select_one(".gs_ai_pho a") or soup.select_one("h3.gs_rt a")
-            
             if profile_link and "user=" in profile_link.get("href", ""):
                 href = profile_link["href"]
                 parsed_url = urllib.parse.urlparse(href)
                 query_params = urllib.parse.parse_qs(parsed_url.query)
                 if "user" in query_params:
                     return query_params["user"][0]
-            
-            # If no profile found, return None (not an error)
-            return None
-            
-        except requests.exceptions.Timeout:
-            if attempt < max_retries - 1:
-                time.sleep(random.uniform(5, 8))
-                continue
-            return None
-        except requests.exceptions.ConnectionError:
-            if attempt < max_retries - 1:
-                time.sleep(random.uniform(5, 8))
-                continue
             return None
         except Exception as e:
-            print(f"Error for {name}: {str(e)}")
-            if attempt < max_retries - 1:
+            print(f"[requests] Error for {name}: {e}")
+            if attempt < 2:
                 time.sleep(random.uniform(3, 6))
-                continue
-            return None
-    
     return None
 
 def scrape_scholar_metrics(user_id):
+    """Get citation metrics for a Scholar user ID using scholarly."""
+    _setup_scholarly()
+
+    if SCHOLARLY_AVAILABLE:
+        try:
+            author = scholarly.search_author_id(user_id)
+            author = scholarly.fill(author, sections=['indices'])
+            cites_per_year = author.get('cites_per_year', {})
+
+            # Recent = since 2021
+            recent_citations = sum(
+                v for y, v in cites_per_year.items() if int(y) >= 2021
+            ) if cites_per_year else 0
+
+            hindex     = author.get('hindex',     0)
+            hindex5y   = author.get('hindex5y',   0)
+            i10index   = author.get('i10index',   0)
+            i10index5y = author.get('i10index5y', 0)
+            citedby    = author.get('citedby',    0)
+
+            return {
+                "Citations_All":        str(citedby),
+                "Citations_Since_2021": str(recent_citations),
+                "H_Index_All":          str(hindex),
+                "H_Index_Since_2021":   str(hindex5y),
+                "I10_Index_All":        str(i10index),
+                "I10_Index_Since_2021": str(i10index5y),
+            }
+        except Exception as e:
+            print(f"[scholarly] Error fetching metrics for {user_id}: {e}")
+            # Fall through to requests fallback
+
+    # Fallback: raw requests
+    return _scrape_metrics_requests(user_id)
+
+def _scrape_metrics_requests(user_id):
+    """Raw requests fallback for scrape_scholar_metrics."""
     profile_url = f"https://scholar.google.com/citations?user={user_id}&hl=en"
-    
-    max_retries = 3
-    for attempt in range(max_retries):
+    for attempt in range(3):
         try:
             session = requests.Session()
             session.headers.update(HEADERS)
-            
             response = session.get(profile_url, timeout=15)
-            
-            if response.status_code == 429:  # Too many requests
+            if response.status_code in (429, 503):
                 time.sleep(random.uniform(10, 15))
                 continue
-            
             if response.status_code != 200:
                 time.sleep(random.uniform(3, 5))
                 continue
-                
             soup = BeautifulSoup(response.text, "html.parser")
             table_rows = soup.select("#gsc_rsb_st tr")
-            
             metrics = {
                 "Citations_All": "0", "Citations_Since_2021": "0",
                 "H_Index_All": "0", "H_Index_Since_2021": "0",
                 "I10_Index_All": "0", "I10_Index_Since_2021": "0"
             }
-            
             for row in table_rows:
                 header = row.select_one(".gsc_rsb_sc1")
                 values = row.select(".gsc_rsb_std")
                 if header and len(values) >= 2:
-                    row_title = header.text.strip().lower()
-                    val_all = values[0].text.strip()
-                    val_recent = values[1].text.strip()
-                    if "citations" in row_title:
-                        metrics["Citations_All"] = val_all
-                        metrics["Citations_Since_2021"] = val_recent
-                    elif "h-index" in row_title:
-                        metrics["H_Index_All"] = val_all
-                        metrics["H_Index_Since_2021"] = val_recent
-                    elif "i10-index" in row_title:
-                        metrics["I10_Index_All"] = val_all
-                        metrics["I10_Index_Since_2021"] = val_recent
-            
+                    t = header.text.strip().lower()
+                    if "citations" in t:
+                        metrics["Citations_All"]        = values[0].text.strip()
+                        metrics["Citations_Since_2021"] = values[1].text.strip()
+                    elif "h-index" in t:
+                        metrics["H_Index_All"]          = values[0].text.strip()
+                        metrics["H_Index_Since_2021"]   = values[1].text.strip()
+                    elif "i10" in t:
+                        metrics["I10_Index_All"]        = values[0].text.strip()
+                        metrics["I10_Index_Since_2021"] = values[1].text.strip()
             return metrics
-            
-        except requests.exceptions.Timeout:
-            if attempt < max_retries - 1:
-                time.sleep(random.uniform(5, 8))
-                continue
-            return None
-        except requests.exceptions.ConnectionError:
-            if attempt < max_retries - 1:
-                time.sleep(random.uniform(5, 8))
-                continue
-            return None
         except Exception as e:
-            print(f"Error scraping metrics: {str(e)}")
-            if attempt < max_retries - 1:
+            print(f"[requests] Error fetching metrics: {e}")
+            if attempt < 2:
                 time.sleep(random.uniform(3, 6))
-                continue
-            return None
-    
     return None
 
 INDEX_HTML = """
@@ -594,5 +640,10 @@ def crawl():
         "csv_data": csv_string
     })
 
+@app.route('/health')
+def health():
+    return jsonify({"status": "ok", "scholarly": SCHOLARLY_AVAILABLE})
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(debug=False, host='0.0.0.0', port=port)
