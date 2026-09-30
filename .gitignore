@@ -42,9 +42,39 @@ instance/
 .DS_Store
 Thumbs.db
 
-# Output files
+# Output / runtime files  (never commit these)
 *.csv
-chemistry_staff.json
-
-# Logs
 *.log
+*.txt
+*.mp3
+scrape_progress.json
+scraper_output.txt
+chemistry_staff.json
+browser_data/
+data/
+docs/
+
+# Tor binary (too large, not needed on Render)
+tor/
+
+# Local-only scrapers (Playwright-based, not used on Render)
+auto_run.py
+fully_automatic_scraper.py
+auto_captcha_scraper.py
+advanced_scraper.py
+free_captcha_scraper.py
+final_working_scraper.py
+run_local_scraper.py
+run_with_serpapi.py
+ultimate_scraper.py
+ultimate_scraper_with_captcha_solver.py
+start_tor.bat
+RUN_ME.bat
+
+# Redundant docs
+ANTI_DETECTION_GUIDE.md
+CAPTCHA_HANDLING.md
+QUICK_START.md
+SERPAPI_SETUP.md
+TESTING_GUIDE.md
+ULTIMATE_SETUP.md
