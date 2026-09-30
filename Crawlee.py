@@ -18,7 +18,16 @@ ALLOWED_EXTENSIONS = {'json', 'docx', 'pdf', 'txt', 'xlsx', 'xls', 'csv'}
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "DNT": "1",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "Sec-Fetch-Dest": "document",
+    "Sec-Fetch-Mode": "navigate",
+    "Sec-Fetch-Site": "none",
+    "Cache-Control": "max-age=0",
 }
 
 def allowed_file(filename):
@@ -175,54 +184,121 @@ def convert_document_to_json(file_path, filename, department="University of Lago
 def get_scholar_id(name):
     query = urllib.parse.quote(f"{name} University of Lagos")
     search_url = f"https://scholar.google.com/scholar?hl=en&q={query}"
-    try:
-        response = requests.get(search_url, headers=HEADERS, timeout=10)
-        if response.status_code != 200:
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Add session for better connection handling
+            session = requests.Session()
+            session.headers.update(HEADERS)
+            
+            response = session.get(search_url, timeout=15)
+            
+            if response.status_code == 429:  # Too many requests
+                time.sleep(random.uniform(10, 15))
+                continue
+            
+            if response.status_code != 200:
+                time.sleep(random.uniform(3, 5))
+                continue
+                
+            soup = BeautifulSoup(response.text, "html.parser")
+            profile_link = soup.select_one(".gs_ai_pho a") or soup.select_one("h3.gs_rt a")
+            
+            if profile_link and "user=" in profile_link.get("href", ""):
+                href = profile_link["href"]
+                parsed_url = urllib.parse.urlparse(href)
+                query_params = urllib.parse.parse_qs(parsed_url.query)
+                if "user" in query_params:
+                    return query_params["user"][0]
+            
+            # If no profile found, return None (not an error)
             return None
-        soup = BeautifulSoup(response.text, "html.parser")
-        profile_link = soup.select_one(".gs_ai_pho a") or soup.select_one("h3.gs_rt a")
-        if profile_link and "user=" in profile_link.get("href", ""):
-            href = profile_link["href"]
-            parsed_url = urllib.parse.urlparse(href)
-            query_params = urllib.parse.parse_qs(parsed_url.query)
-            if "user" in query_params:
-                return query_params["user"][0]
-    except Exception:
-        pass
+            
+        except requests.exceptions.Timeout:
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(5, 8))
+                continue
+            return None
+        except requests.exceptions.ConnectionError:
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(5, 8))
+                continue
+            return None
+        except Exception as e:
+            print(f"Error for {name}: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(3, 6))
+                continue
+            return None
+    
     return None
 
 def scrape_scholar_metrics(user_id):
     profile_url = f"https://scholar.google.com/citations?user={user_id}&hl=en"
-    try:
-        response = requests.get(profile_url, headers=HEADERS, timeout=10)
-        if response.status_code != 200:
+    
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            session = requests.Session()
+            session.headers.update(HEADERS)
+            
+            response = session.get(profile_url, timeout=15)
+            
+            if response.status_code == 429:  # Too many requests
+                time.sleep(random.uniform(10, 15))
+                continue
+            
+            if response.status_code != 200:
+                time.sleep(random.uniform(3, 5))
+                continue
+                
+            soup = BeautifulSoup(response.text, "html.parser")
+            table_rows = soup.select("#gsc_rsb_st tr")
+            
+            metrics = {
+                "Citations_All": "0", "Citations_Since_2021": "0",
+                "H_Index_All": "0", "H_Index_Since_2021": "0",
+                "I10_Index_All": "0", "I10_Index_Since_2021": "0"
+            }
+            
+            for row in table_rows:
+                header = row.select_one(".gsc_rsb_sc1")
+                values = row.select(".gsc_rsb_std")
+                if header and len(values) >= 2:
+                    row_title = header.text.strip().lower()
+                    val_all = values[0].text.strip()
+                    val_recent = values[1].text.strip()
+                    if "citations" in row_title:
+                        metrics["Citations_All"] = val_all
+                        metrics["Citations_Since_2021"] = val_recent
+                    elif "h-index" in row_title:
+                        metrics["H_Index_All"] = val_all
+                        metrics["H_Index_Since_2021"] = val_recent
+                    elif "i10-index" in row_title:
+                        metrics["I10_Index_All"] = val_all
+                        metrics["I10_Index_Since_2021"] = val_recent
+            
+            return metrics
+            
+        except requests.exceptions.Timeout:
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(5, 8))
+                continue
             return None
-        soup = BeautifulSoup(response.text, "html.parser")
-        table_rows = soup.select("#gsc_rsb_st tr")
-        metrics = {
-            "Citations_All": "0", "Citations_Since_2021": "0",
-            "H_Index_All": "0", "H_Index_Since_2021": "0",
-            "I10_Index_All": "0", "I10_Index_Since_2021": "0"
-        }
-        for row in table_rows:
-            header = row.select_one(".gsc_rsb_sc1")
-            values = row.select(".gsc_rsb_std")
-            if header and len(values) >= 2:
-                row_title = header.text.strip().lower()
-                val_all = values[0].text.strip()
-                val_recent = values[1].text.strip()
-                if "citations" in row_title:
-                    metrics["Citations_All"] = val_all
-                    metrics["Citations_Since_2021"] = val_recent
-                elif "h-index" in row_title:
-                    metrics["H_Index_All"] = val_all
-                    metrics["H_Index_Since_2021"] = val_recent
-                elif "i10-index" in row_title:
-                    metrics["I10_Index_All"] = val_all
-                    metrics["I10_Index_Since_2021"] = val_recent
-        return metrics
-    except Exception:
-        return None
+        except requests.exceptions.ConnectionError:
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(5, 8))
+                continue
+            return None
+        except Exception as e:
+            print(f"Error scraping metrics: {str(e)}")
+            if attempt < max_retries - 1:
+                time.sleep(random.uniform(3, 6))
+                continue
+            return None
+    
+    return None
 
 INDEX_HTML = """
 <!DOCTYPE html>
@@ -364,7 +440,8 @@ INDEX_HTML = """
                     lucide.createIcons();
                 }
             } catch (err) {
-                resultsContainer.innerHTML = '<div class="text-center py-16 text-rose-600"><p class="text-sm font-semibold">An unexpected network error occurred.</p></div>';
+                resultsContainer.innerHTML = `<div class="text-center py-16 text-rose-600"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p class="text-sm font-semibold">Network error occurred. This might happen if:</p><ul class="text-xs mt-2 list-disc list-inside"><li>Google Scholar is blocking the server IP</li><li>Too many requests were made</li><li>Internet connection issue</li></ul><p class="text-xs mt-4">Try again with fewer names or wait a few minutes.</p></div>`;
+                lucide.createIcons();
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('opacity-50');
@@ -506,7 +583,7 @@ def crawl():
                     "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
                 })
             results.append(record)
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(3, 6))  # Increased delay to avoid blocking
     
     df = pd.DataFrame(results)
     csv_string = df.to_csv(index=False)
