@@ -122,14 +122,34 @@ def extract_names_from_txt(file_path):
     
     return list(set(names))
 
-def extract_names_from_excel(file_path):
-    """Extract names from Excel file"""
-    names = []
+def extract_staff_from_excel(file_path):
+    """Extract staff from Excel file. Expects 'Name' and optional 'Department' columns."""
+    staff = []
     try:
         df = pd.read_excel(file_path)
+        # Check if structured (has Name column)
+        cols = [c.lower() for c in df.columns]
+        
+        name_col = None
+        dept_col = None
+        
+        for c in df.columns:
+            if 'name' in c.lower(): name_col = c
+            if 'department' in c.lower() or 'dept' in c.lower(): dept_col = c
+            
+        if name_col:
+            for _, row in df.iterrows():
+                name = str(row[name_col]).strip()
+                if name and name != 'nan':
+                    dept = str(row[dept_col]).strip() if dept_col else "University of Lagos"
+                    if dept == 'nan': dept = "University of Lagos"
+                    staff.append({"name": name, "department": dept})
+            return staff
+
+        # Fallback to unstructured extraction
         skip_keywords = ['b.sc', 'm.sc', 'ph.d', 'professor', 'department', 'email', 
                         'tel:', 'fax:', 'university', 'research', 'lecturer', 'dr.']
-        
+        names = []
         for col in df.columns:
             for value in df[col].dropna():
                 text = str(value).strip()
@@ -141,19 +161,39 @@ def extract_names_from_excel(file_path):
                         words = text.split()
                         if len(words) >= 2 and any(w[0].isupper() for w in words if w):
                             names.append(text.strip())
+        return [{"name": n, "department": "University of Lagos"} for n in set(names)]
     except Exception as e:
         print(f"Excel extraction error: {e}")
-    
-    return list(set(names))
+        return []
 
-def extract_names_from_csv(file_path):
-    """Extract names from CSV file"""
-    names = []
+def extract_staff_from_csv(file_path):
+    """Extract staff from CSV file. Expects 'Name' and optional 'Department' columns."""
+    staff = []
     try:
         df = pd.read_csv(file_path)
+        # Check if structured (has Name column)
+        cols = [c.lower() for c in df.columns]
+        
+        name_col = None
+        dept_col = None
+        
+        for c in df.columns:
+            if 'name' in c.lower(): name_col = c
+            if 'department' in c.lower() or 'dept' in c.lower(): dept_col = c
+            
+        if name_col:
+            for _, row in df.iterrows():
+                name = str(row[name_col]).strip()
+                if name and name != 'nan':
+                    dept = str(row[dept_col]).strip() if dept_col else "University of Lagos"
+                    if dept == 'nan': dept = "University of Lagos"
+                    staff.append({"name": name, "department": dept})
+            return staff
+            
+        # Fallback to unstructured extraction if no Name column found
         skip_keywords = ['b.sc', 'm.sc', 'ph.d', 'professor', 'department', 'email', 
                         'tel:', 'fax:', 'university', 'research', 'lecturer', 'dr.']
-        
+        names = []
         for col in df.columns:
             for value in df[col].dropna():
                 text = str(value).strip()
@@ -165,28 +205,30 @@ def extract_names_from_csv(file_path):
                         words = text.split()
                         if len(words) >= 2 and any(w[0].isupper() for w in words if w):
                             names.append(text.strip())
+        
+        return [{"name": n, "department": "University of Lagos"} for n in set(names)]
     except Exception as e:
         print(f"CSV extraction error: {e}")
-    
-    return list(set(names))
+        return []
 
-def convert_document_to_json(file_path, filename, department="University of Lagos"):
+def convert_document_to_json(file_path, filename, default_department="University of Lagos"):
     """Convert various document formats to JSON staff list"""
     ext = filename.rsplit('.', 1)[1].lower()
-    names = []
     
+    if ext == 'csv':
+        return extract_staff_from_csv(file_path)
+    if ext in ['xlsx', 'xls']:
+        return extract_staff_from_excel(file_path)
+        
+    names = []
     if ext == 'docx':
         names = extract_names_from_docx(file_path)
     elif ext == 'pdf':
         names = extract_names_from_pdf(file_path)
     elif ext == 'txt':
         names = extract_names_from_txt(file_path)
-    elif ext in ['xlsx', 'xls']:
-        names = extract_names_from_excel(file_path)
-    elif ext == 'csv':
-        names = extract_names_from_csv(file_path)
     
-    staff_list = [{"name": name, "department": department} for name in names]
+    staff_list = [{"name": name, "department": default_department} for name in names]
     return staff_list
 
 # ---------------------------------------------------------------------------
@@ -392,30 +434,96 @@ INDEX_HTML = """
     <main class="flex-grow max-w-7xl w-full mx-auto px-6 py-8">
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <!-- Control Panel -->
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1">
-                <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
-                    <i data-lucide="upload-cloud" class="w-5 h-5 text-unilagMaroon"></i>
-                    <span>Upload Staff Document</span>
-                </h2>
-                <p class="text-sm text-slate-600 mb-6">
-                    Upload any document containing staff names. The system will automatically extract names and retrieve their Google Scholar metrics.
-                </p>
-                
-                <form id="uploadForm" class="space-y-4">
-                    <div>
-                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Upload Document</label>
-                    <input type="file" id="jsonFile" accept=".json,.docx,.pdf,.txt,.xlsx,.xls,.csv" required class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-unilagMaroon file:text-white hover:file:bg-opacity-90 cursor-pointer border border-slate-200 rounded-md">
-                    <p class="text-xs text-slate-500 mt-2">Supported: JSON, Word (DOCX), PDF, Text (TXT), Excel (XLSX, XLS), CSV</p>
-                </div>
-                    <button type="submit" id="submitBtn" class="w-full bg-unilagMaroon text-white font-semibold py-2.5 px-4 rounded-md hover:bg-opacity-90 transition duration-150 flex items-center justify-center space-x-2">
-                        <i data-lucide="play" class="w-4 h-4"></i>
-                        <span>Start Scholar Crawler</span>
-                    </button>
-                </form>
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 lg:col-span-1 space-y-6">
+                <!-- Bulk Upload Section -->
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                        <i data-lucide="upload-cloud" class="w-5 h-5 text-unilagMaroon"></i>
+                        <span>Upload Staff Document</span>
+                    </h2>
+                    <p class="text-sm text-slate-600 mb-6">
+                        Upload any document containing staff names. The system will automatically extract names and retrieve their Google Scholar metrics.
+                    </p>
+                    
+                    <div id="uploadWrapper">
+                        <button id="showGuideBtn" type="button" class="w-full bg-slate-100 text-slate-700 font-semibold py-3 px-4 rounded-md hover:bg-slate-200 transition duration-150 flex items-center justify-center space-x-2 border border-slate-300">
+                            <i data-lucide="book-open" class="w-5 h-5"></i>
+                            <span>Read Data Formatting Guide to Unlock Upload</span>
+                        </button>
+                        
+                        <div id="guideSection" class="hidden mt-4 p-4 bg-blue-50 border border-blue-200 rounded-md shadow-sm">
+                            <h3 class="text-sm font-bold text-blue-900 mb-2 flex items-center">
+                                <i data-lucide="info" class="w-4 h-4 mr-2"></i> Data Formatting Guide
+                            </h3>
+                            <p class="text-xs text-blue-800 mb-3">For perfect extraction, upload a <strong>CSV</strong> or <strong>Excel</strong> file structured with two exact columns: <strong>Name</strong> and <strong>Department</strong>.</p>
+                            <table class="w-full text-xs text-left bg-white border border-blue-200 rounded overflow-hidden mb-4 shadow-sm">
+                                <thead class="bg-blue-100 text-blue-900">
+                                    <tr><th class="px-3 py-2 border-r border-blue-200">Name</th><th class="px-3 py-2">Department</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td class="px-3 py-2 border-r border-blue-200">Maureen Egenti</td><td class="px-3 py-2 text-slate-600">Adult Education</td></tr>
+                                    <tr><td class="px-3 py-2 border-r border-blue-200">John Doe</td><td class="px-3 py-2 text-slate-600">Computer Science</td></tr>
+                                </tbody>
+                            </table>
+                            <p class="text-xs text-blue-700 italic mb-4">Note: If you upload Word/PDF files, the department will default to "University of Lagos".</p>
+                            
+                            <button id="unlockUploadBtn" type="button" class="w-full bg-blue-600 text-white font-semibold py-2 px-4 rounded hover:bg-blue-700 transition flex items-center justify-center space-x-2">
+                                <i data-lucide="unlock" class="w-4 h-4"></i>
+                                <span>I understand, unlock upload</span>
+                            </button>
+                        </div>
 
-                <div id="loader" class="hidden mt-6 text-center space-y-3">
-                    <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-unilagMaroon border-t-transparent"></div>
-                    <p class="text-sm font-medium text-slate-600">Crawling Google Scholar metrics...</p>
+                        <form id="uploadForm" class="hidden space-y-4 mt-6">
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Upload Document</label>
+                                <input type="file" id="jsonFile" accept=".json,.docx,.pdf,.txt,.xlsx,.xls,.csv" required class="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-unilagMaroon file:text-white hover:file:bg-opacity-90 cursor-pointer border border-slate-200 rounded-md">
+                                <p class="text-xs text-slate-500 mt-2">Supported: JSON, Word (DOCX), PDF, Text (TXT), Excel (XLSX, XLS), CSV</p>
+                            </div>
+                            <button type="submit" id="submitBtn" class="w-full bg-unilagMaroon text-white font-semibold py-2.5 px-4 rounded-md hover:bg-opacity-90 transition duration-150 flex items-center justify-center space-x-2">
+                                <i data-lucide="play" class="w-4 h-4"></i>
+                                <span>Start Scholar Crawler</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <div id="loader" class="hidden mt-6 text-center space-y-3">
+                        <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-unilagMaroon border-t-transparent"></div>
+                        <p class="text-sm font-medium text-slate-600">Crawling Google Scholar metrics...</p>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="border-t border-slate-200"></div>
+
+                <!-- Individual Search Section -->
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900 mb-4 flex items-center space-x-2">
+                        <i data-lucide="user-plus" class="w-5 h-5 text-unilagGold"></i>
+                        <span>Add Individual Profile</span>
+                    </h2>
+                    <p class="text-sm text-slate-600 mb-6">
+                        Search for one person at a time. Results accumulate in the table.
+                    </p>
+                    
+                    <form id="individualForm" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">First Name</label>
+                            <input type="text" id="firstName" placeholder="e.g., Luqman" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Last Name</label>
+                            <input type="text" id="lastName" placeholder="e.g., Adams" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
+                        </div>
+                        <button type="submit" id="searchIndividualBtn" class="w-full bg-unilagGold text-white font-semibold py-2.5 px-4 rounded-md hover:bg-opacity-90 transition duration-150 flex items-center justify-center space-x-2">
+                            <i data-lucide="search" class="w-4 h-4"></i>
+                            <span>Search & Add Profile</span>
+                        </button>
+                    </form>
+
+                    <div id="individualLoader" class="hidden mt-4 text-center space-y-2">
+                        <div class="inline-block animate-spin rounded-full h-6 w-6 border-4 border-unilagGold border-t-transparent"></div>
+                        <p class="text-xs font-medium text-slate-600">Searching...</p>
+                    </div>
                 </div>
             </div>
 
@@ -426,16 +534,28 @@ INDEX_HTML = """
                         <i data-lucide="bar-chart-3" class="w-5 h-5 text-unilagMaroon"></i>
                         <span>Extraction Results</span>
                     </h2>
-                    <button id="downloadBtn" class="hidden bg-emerald-600 text-white text-sm font-semibold py-2 px-4 rounded-md hover:bg-emerald-700 transition duration-150 flex items-center space-x-2">
-                        <i data-lucide="download" class="w-4 h-4"></i>
-                        <span>Download CSV Report</span>
-                    </button>
+                    
+                    <div id="downloadContainer" class="hidden flex items-center space-x-2">
+                        <button onclick="clearAll()" class="bg-rose-100 text-rose-700 text-xs font-semibold py-1.5 px-3 rounded hover:bg-rose-200 transition flex items-center space-x-1 mr-2" title="Clear All Data">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i><span>Clear All</span>
+                        </button>
+                        <span class="text-xs text-slate-500 font-semibold uppercase tracking-wider mr-1">Download:</span>
+                        <button onclick="downloadFormat('csv')" class="bg-emerald-600 text-white text-xs font-semibold py-1.5 px-3 rounded hover:bg-emerald-700 transition flex items-center space-x-1" title="Download as CSV">
+                            <i data-lucide="file-text" class="w-4 h-4"></i><span>CSV</span>
+                        </button>
+                        <button onclick="downloadFormat('excel')" class="bg-emerald-600 text-white text-xs font-semibold py-1.5 px-3 rounded hover:bg-emerald-700 transition flex items-center space-x-1" title="Download as Excel">
+                            <i data-lucide="table" class="w-4 h-4"></i><span>Excel</span>
+                        </button>
+                        <button onclick="downloadFormat('parquet')" class="bg-emerald-600 text-white text-xs font-semibold py-1.5 px-3 rounded hover:bg-emerald-700 transition flex items-center space-x-1" title="Download as Parquet (Parakeet)">
+                            <i data-lucide="database" class="w-4 h-4"></i><span>Parquet</span>
+                        </button>
+                    </div>
                 </div>
 
                 <div id="resultsContainer" class="flex-grow overflow-x-auto">
                     <div class="text-center py-16 text-slate-400">
                         <i data-lucide="database" class="w-12 h-12 mx-auto mb-3 stroke-1"></i>
-                        <p class="text-sm">No data processed yet. Upload a staff JSON file to begin.</p>
+                        <p class="text-sm">No data processed yet. Upload a staff document to begin.</p>
                     </div>
                 </div>
             </div>
@@ -447,9 +567,53 @@ INDEX_HTML = """
         University of Lagos Academic Analytics Service &bull; Powered by Python and BeautifulSoup
     </footer>
 
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded-md shadow-lg transform transition-transform duration-300 translate-y-20 opacity-0 z-50 flex items-center space-x-2">
+        <i data-lucide="check-circle" class="w-5 h-5"></i>
+        <span id="toastMsg" class="font-medium text-sm"></span>
+    </div>
+
     <script>
         lucide.createIcons();
-        let csvDataGlobal = null;
+        let globalResults = [];
+
+        // Persistence Load
+        window.onload = function() {
+            const saved = localStorage.getItem('unilag_scholar_data');
+            if (saved) {
+                try {
+                    globalResults = JSON.parse(saved);
+                    if (globalResults.length > 0) {
+                        renderTable(globalResults);
+                        document.getElementById('downloadContainer').classList.remove('hidden');
+                        showToast("Restored your previous results.");
+                    }
+                } catch(e) { console.error(e); }
+            }
+        };
+
+        function saveData() {
+            localStorage.setItem('unilag_scholar_data', JSON.stringify(globalResults));
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toastMsg').innerText = msg;
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        // Guide Unlock Logic
+        document.getElementById('showGuideBtn').addEventListener('click', function() {
+            this.classList.add('hidden');
+            document.getElementById('guideSection').classList.remove('hidden');
+        });
+        document.getElementById('unlockUploadBtn').addEventListener('click', function() {
+            document.getElementById('guideSection').classList.add('hidden');
+            document.getElementById('uploadForm').classList.remove('hidden');
+        });
 
         document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -462,13 +626,13 @@ INDEX_HTML = """
             const submitBtn = document.getElementById('submitBtn');
             const loader = document.getElementById('loader');
             const resultsContainer = document.getElementById('resultsContainer');
-            const downloadBtn = document.getElementById('downloadBtn');
+            const downloadContainer = document.getElementById('downloadContainer');
 
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-50');
             loader.classList.remove('hidden');
             resultsContainer.innerHTML = '<div class="text-center py-16 text-slate-500"><div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-unilagMaroon border-t-transparent mb-3"></div><p class="text-sm">Processing profiles across Google Scholar...</p></div>';
-            downloadBtn.classList.add('hidden');
+            downloadContainer.classList.add('hidden');
 
             try {
                 const response = await fetch('/crawl', {
@@ -478,9 +642,11 @@ INDEX_HTML = """
                 const data = await response.json();
 
                 if (data.success) {
-                    csvDataGlobal = data.csv_data;
-                    renderTable(data.results);
-                    downloadBtn.classList.remove('hidden');
+                    globalResults = data.results;
+                    saveData();
+                    renderTable(globalResults);
+                    downloadContainer.classList.remove('hidden');
+                    showToast("Document processed successfully.");
                 } else {
                     resultsContainer.innerHTML = `<div class="text-center py-16 text-rose-600"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p class="text-sm font-semibold">${data.error}</p></div>`;
                     lucide.createIcons();
@@ -499,6 +665,7 @@ INDEX_HTML = """
         function renderTable(results) {
             if (!results || results.length === 0) {
                 document.getElementById('resultsContainer').innerHTML = '<p class="text-center py-8 text-slate-500">No records found.</p>';
+                document.getElementById('downloadContainer').classList.add('hidden');
                 return;
             }
 
@@ -514,49 +681,184 @@ INDEX_HTML = """
                             <th class="p-3 font-semibold text-center">H-Index (2021+)</th>
                             <th class="p-3 font-semibold text-center">i10-Index (All)</th>
                             <th class="p-3 font-semibold text-center">i10-Index (2021+)</th>
+                            <th class="p-3 font-semibold text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-slate-100">
             `;
 
-            results.forEach(row => {
+            results.forEach((row, index) => {
                 html += `
-                    <tr class="hover:bg-slate-50">
-                        <td class="p-3 font-medium text-slate-900">${row.Name}</td>
-                        <td class="p-3 text-slate-600">${row.Department}</td>
-                        <td class="p-3 text-center font-semibold text-unilagMaroon">${row.Citations_All}</td>
-                        <td class="p-3 text-center font-semibold text-slate-700">${row.Citations_Since_2021}</td>
-                        <td class="p-3 text-center">${row.H_Index_All}</td>
-                        <td class="p-3 text-center">${row.H_Index_Since_2021}</td>
-                        <td class="p-3 text-center">${row.I10_Index_All}</td>
-                        <td class="p-3 text-center">${row.I10_Index_Since_2021}</td>
+                    <tr class="hover:bg-slate-50 group transition-colors">
+                        <td class="p-3 font-medium text-slate-900 border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Name', this.innerText)">${row.Name}</td>
+                        <td class="p-3 text-slate-600 border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Department', this.innerText)">${row.Department}</td>
+                        <td class="p-3 text-center font-semibold text-unilagMaroon border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Citations_All', this.innerText)">${row.Citations_All}</td>
+                        <td class="p-3 text-center font-semibold text-slate-700 border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Citations_Since_2021', this.innerText)">${row.Citations_Since_2021}</td>
+                        <td class="p-3 text-center border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'H_Index_All', this.innerText)">${row.H_Index_All}</td>
+                        <td class="p-3 text-center border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'H_Index_Since_2021', this.innerText)">${row.H_Index_Since_2021}</td>
+                        <td class="p-3 text-center border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'I10_Index_All', this.innerText)">${row.I10_Index_All}</td>
+                        <td class="p-3 text-center border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'I10_Index_Since_2021', this.innerText)">${row.I10_Index_Since_2021}</td>
+                        <td class="p-3 text-center flex justify-center space-x-1 opacity-20 group-hover:opacity-100 transition-opacity">
+                            <button onclick="moveRow(${index}, -1)" class="p-1 hover:bg-slate-200 rounded text-slate-600" title="Move Up"><i data-lucide="arrow-up" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="moveRow(${index}, 1)" class="p-1 hover:bg-slate-200 rounded text-slate-600" title="Move Down"><i data-lucide="arrow-down" class="w-3.5 h-3.5"></i></button>
+                            <button onclick="deleteRow(${index})" class="p-1 hover:bg-rose-100 rounded text-rose-600" title="Delete"><i data-lucide="trash" class="w-3.5 h-3.5"></i></button>
+                        </td>
                     </tr>
                 `;
             });
 
             html += '</tbody></table>';
             document.getElementById('resultsContainer').innerHTML = html;
+            lucide.createIcons();
         }
 
-        document.getElementById('downloadBtn').addEventListener('click', function() {
-            if (!csvDataGlobal) return;
-            const blob = new Blob([csvDataGlobal], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'unilag_scholar_metrics_report.csv';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        function updateVal(index, key, val) {
+            if (globalResults[index][key] !== val.trim()) {
+                globalResults[index][key] = val.trim();
+                saveData();
+                showToast("Value updated");
+            }
+        }
+
+        function moveRow(index, direction) {
+            if (index + direction < 0 || index + direction >= globalResults.length) return;
+            const temp = globalResults[index];
+            globalResults[index] = globalResults[index + direction];
+            globalResults[index + direction] = temp;
+            saveData();
+            renderTable(globalResults);
+        }
+
+        function deleteRow(index) {
+            if (confirm("Delete this record?")) {
+                globalResults.splice(index, 1);
+                saveData();
+                renderTable(globalResults);
+                showToast("Record deleted");
+            }
+        }
+
+        function clearAll() {
+            if (confirm("Are you sure you want to clear all data? This cannot be undone.")) {
+                globalResults = [];
+                saveData();
+                renderTable(globalResults);
+                showToast("All data cleared");
+            }
+        }
+
+        async function downloadFormat(fmt) {
+            if (globalResults.length === 0) return;
+            
+            try {
+                // We show loading state on the button
+                const btn = event.currentTarget;
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<div class="inline-block animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div><span>Wait...</span>';
+                
+                const response = await fetch('/download', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ results: globalResults, format: fmt })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    
+                    let ext = fmt === 'excel' ? 'xlsx' : fmt === 'parquet' ? 'parquet' : 'csv';
+                    a.download = `unilag_scholar_metrics_report.${ext}`;
+                    
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                } else {
+                    alert("Error generating download file.");
+                }
+                btn.innerHTML = originalHtml;
+                lucide.createIcons();
+            } catch (e) {
+                alert("Download failed: " + e.message);
+            }
+        }
+
+        // Individual Search
+        document.getElementById('individualForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const firstName = document.getElementById('firstName').value.trim();
+            const lastName = document.getElementById('lastName').value.trim();
+            
+            if (!firstName || !lastName) return;
+            
+            const btn = document.getElementById('searchIndividualBtn');
+            const loader = document.getElementById('individualLoader');
+            const resultsContainer = document.getElementById('resultsContainer');
+            const downloadContainer = document.getElementById('downloadContainer');
+            
+            btn.disabled = true;
+            btn.classList.add('opacity-50');
+            loader.classList.remove('hidden');
+            
+            try {
+                const response = await fetch('/search_individual', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        first_name: firstName,
+                        last_name: lastName,
+                        affiliation: 'University of Lagos'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Add to global results
+                    globalResults.push(data.result);
+                    saveData();
+                    
+                    // Render table
+                    renderTable(globalResults);
+                    
+                    // Show download buttons
+                    downloadContainer.classList.remove('hidden');
+                    
+                    // Clear form
+                    document.getElementById('firstName').value = '';
+                    document.getElementById('lastName').value = '';
+                    
+                    // Show success message
+                    showToast(`Found: ${data.result.Name}`);
+                } else {
+                    alert(`✗ Error: ${data.error}`);
+                }
+            } catch (err) {
+                alert(`✗ Error: ${err.message}`);
+            } finally {
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
+                loader.classList.add('hidden');
+                lucide.createIcons();
+            }
         });
     </script>
 </body>
 </html>
 """
 
+from flask import make_response
+
 @app.route('/')
 def index():
-    return render_template_string(INDEX_HTML)
+    response = make_response(render_template_string(INDEX_HTML))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.route('/crawl', methods=['POST'])
 def crawl():
@@ -582,21 +884,29 @@ def crawl():
         if ext == 'json':
             with open(temp_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-                staff_list = json.loads(content)
+                try:
+                    staff_list = json.loads(content)
+                    if not isinstance(staff_list, list):
+                        raise ValueError("JSON must be a list of objects.")
+                    if len(staff_list) > 0 and 'name' not in staff_list[0]:
+                        raise ValueError("JSON objects must contain a 'name' key.")
+                except Exception as je:
+                    os.remove(temp_path)
+                    return jsonify({"success": False, "error": f"JSON Format Error: {str(je)}"})
         else:
             # Convert document to staff list
             staff_list = convert_document_to_json(temp_path, filename)
-            if not staff_list:
-                os.remove(temp_path)
-                return jsonify({"success": False, "error": f"Could not extract names from {ext.upper()} file"})
-        
+            
         # Clean up temp file
         os.remove(temp_path)
         
-    except json.JSONDecodeError:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        return jsonify({"success": False, "error": "Invalid JSON document format"})
+        # Format Checker
+        if not staff_list or len(staff_list) == 0:
+            return jsonify({
+                "success": False, 
+                "error": f"Format Error: Could not extract any valid names from the {ext.upper()} file. Please check the Data Formatting Guide."
+            })
+            
     except Exception as e:
         if os.path.exists(temp_path):
             os.remove(temp_path)
@@ -639,6 +949,181 @@ def crawl():
         "results": results,
         "csv_data": csv_string
     })
+
+@app.route('/search_individual', methods=['POST'])
+def search_individual():
+    """Search for a single person by first and last name"""
+    try:
+        data = request.json
+        first_name = data.get('first_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        affiliation = data.get('affiliation', 'University of Lagos').strip()
+        
+        if not first_name and not last_name:
+            return jsonify({'success': False, 'error': 'First name and last name required'})
+        
+        full_name = f"{first_name} {last_name}".strip()
+        
+        # Fallback: if user pasted a URL instead of a name
+        if 'user=' in full_name:
+            import urllib.parse, requests
+            from bs4 import BeautifulSoup
+            user_id = ""
+            for token in full_name.split():
+                if 'user=' in token:
+                    parsed = urllib.parse.urlparse(token)
+                    qs = urllib.parse.parse_qs(parsed.query)
+                    if 'user' in qs:
+                        user_id = qs['user'][0]
+                        break
+            if user_id:
+                metrics = scrape_scholar_metrics(user_id)
+                if metrics:
+                    name = "Extracted Profile"
+                    try:
+                        resp = requests.get(f"https://scholar.google.com/citations?user={user_id}&hl=en", headers=HEADERS)
+                        soup = BeautifulSoup(resp.text, "html.parser")
+                        name_elem = soup.select_one("#gsc_prf_in")
+                        if name_elem:
+                            name = name_elem.text
+                    except:
+                        pass
+                    return jsonify({
+                        'success': True,
+                        'result': {
+                            'Name': name,
+                            'Department': affiliation,
+                            'Citations_All': str(metrics.get('Citations_All', 0)),
+                            'Citations_Since_2021': str(metrics.get('Citations_Since_2021', 0)),
+                            'H_Index_All': str(metrics.get('H_Index_All', 0)),
+                            'H_Index_Since_2021': str(metrics.get('H_Index_Since_2021', 0)),
+                            'I10_Index_All': str(metrics.get('I10_Index_All', 0)),
+                            'I10_Index_Since_2021': str(metrics.get('I10_Index_Since_2021', 0)),
+                        }
+                    })
+
+        # Use Apify Google Search to find the profile accurately
+        from apify_client import ApifyClient
+        
+        APIFY_TOKEN = os.environ.get('APIFY_TOKEN', '')
+        client = ApifyClient(APIFY_TOKEN)
+        
+        full_name = f"{first_name} {last_name}".strip()
+        
+        # Search Google using Apify Google Search Scraper
+        # This is much more accurate for finding Scholar profiles than Scholar's own search
+        query = f'site:scholar.google.com/citations "{full_name}" "{affiliation}"'
+        
+        run_input = {
+            "queries": query,
+            "maxPagesPerQuery": 1,
+            "resultsPerPage": 5,
+        }
+        
+        run = client.actor('apify/google-search-scraper').call(run_input=run_input)
+        
+        user_id = None
+        for item in client.dataset(run.default_dataset_id).iterate_items():
+            print(f"Item: {item}")
+            if 'organicResults' in item:
+                for res in item['organicResults']:
+                    url = res.get('url', '')
+                    print(f"Result URL: {url}")
+                    if 'user=' in url:
+                        import urllib.parse
+                        parsed = urllib.parse.urlparse(url)
+                        qs = urllib.parse.parse_qs(parsed.query)
+                        if 'user' in qs:
+                            user_id = qs['user'][0]
+                            print(f"Found User ID: {user_id}")
+                            break
+            if user_id:
+                break
+                
+        if user_id:
+            metrics = scrape_scholar_metrics(user_id)
+            if metrics:
+                # Get exact name from profile if possible
+                profile_name = full_name
+                try:
+                    import requests
+                    from bs4 import BeautifulSoup
+                    resp = requests.get(f"https://scholar.google.com/citations?user={user_id}&hl=en", headers=HEADERS)
+                    soup = BeautifulSoup(resp.text, "html.parser")
+                    name_elem = soup.select_one("#gsc_prf_in")
+                    if name_elem:
+                        profile_name = name_elem.text
+                except:
+                    pass
+
+                return jsonify({
+                    'success': True,
+                    'result': {
+                        'Name': profile_name,
+                        'Department': affiliation,
+                        'Citations_All': str(metrics.get('Citations_All', 0)),
+                        'Citations_Since_2021': str(metrics.get('Citations_Since_2021', 0)),
+                        'H_Index_All': str(metrics.get('H_Index_All', 0)),
+                        'H_Index_Since_2021': str(metrics.get('H_Index_Since_2021', 0)),
+                        'I10_Index_All': str(metrics.get('I10_Index_All', 0)),
+                        'I10_Index_Since_2021': str(metrics.get('I10_Index_Since_2021', 0)),
+                    }
+                })
+
+        return jsonify({
+            'success': False, 
+            'error': f'No profile found for {full_name}. Please check the spelling or try a different name format.'
+        })
+    
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
+
+@app.route('/download', methods=['POST'])
+def download():
+    """Generates the downloadable file dynamically in the selected format"""
+    data = request.json
+    results = data.get('results', [])
+    fmt = data.get('format', 'csv')
+    
+    if not results:
+        return jsonify({"error": "No data available"}), 400
+        
+    df = pd.DataFrame(results)
+    
+    import io
+    from flask import send_file, Response
+    
+    if fmt == 'csv':
+        output = io.StringIO()
+        df.to_csv(output, index=False)
+        return Response(
+            output.getvalue(),
+            mimetype="text/csv",
+            headers={"Content-disposition": "attachment; filename=scholar_metrics.csv"}
+        )
+    elif fmt == 'excel':
+        output = io.BytesIO()
+        df.to_excel(output, index=False)
+        output.seek(0)
+        return send_file(
+            output,
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            as_attachment=True,
+            download_name="unilag_scholar_metrics_report.xlsx"
+        )
+    elif fmt == 'parquet':
+        output = io.BytesIO()
+        # Fast parquet serialization
+        df.to_parquet(output, index=False, engine='pyarrow')
+        output.seek(0)
+        return send_file(
+            output,
+            mimetype="application/octet-stream",
+            as_attachment=True,
+            download_name="unilag_scholar_metrics_report.parquet"
+        )
+        
+    return jsonify({"error": "Invalid format"}), 400
 
 @app.route('/health')
 def health():
