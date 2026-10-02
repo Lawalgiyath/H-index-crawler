@@ -333,7 +333,7 @@ def _scrape_metrics_requests(user_id):
                         "proxyConfiguration": {"useApifyProxy": True}
                     }
                     run = client.actor('apify/cheerio-scraper').call(run_input=run_input)
-                    for item in client.dataset(run.default_dataset_id).iterate_items():
+                    for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
                         html_content = item.get("html", "")
                         break
                 if not html_content:
@@ -1026,6 +1026,7 @@ def search_individual():
         user_id = None
         matched_url = None
         debug_info = []
+        debug_info = []
         
         for query in search_queries:
             if user_id:
@@ -1039,7 +1040,7 @@ def search_individual():
                 
                 run = client.actor('apify/google-search-scraper').call(run_input=run_input)
                 
-                for item in client.dataset(run.default_dataset_id).iterate_items():
+                for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
                     if 'organicResults' in item:
                         for res in item['organicResults']:
                             url = res.get('url', '')
