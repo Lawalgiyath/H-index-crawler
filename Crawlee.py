@@ -329,7 +329,8 @@ def _scrape_metrics_requests(user_id):
                     client = ApifyClient(token)
                     run_input = {
                         "startUrls": [{"url": profile_url}],
-                        "pageFunction": "async function pageFunction(context) { const $ = context.$; return { html: $('body').html() }; }"
+                        "pageFunction": "async function pageFunction(context) { const $ = context.$; return { html: $('body').html() }; }",
+                        "proxyConfiguration": {"useApifyProxy": True}
                     }
                     run = client.actor('apify/cheerio-scraper').call(run_input=run_input)
                     for item in client.dataset(run.default_dataset_id).iterate_items():
