@@ -1006,39 +1006,76 @@ def search_individual():
         from apify_client import ApifyClient
         
         APIFY_TOKEN = os.environ.get('APIFY_TOKEN', '')
+        if not APIFY_TOKEN:
+            return jsonify({'success': False, 'error': 'APIFY_TOKEN environment variable is not set. Please set it and restart the server.'})
         client = ApifyClient(APIFY_TOKEN)
         
         full_name = f"{first_name} {last_name}".strip()
         
-        # Search Google using Apify Google Search Scraper
-        # This is much more accurate for finding Scholar profiles than Scholar's own search
-        query = f'site:scholar.google.com/citations "{full_name}" "{affiliation}"'
-        
-        run_input = {
-            "queries": query,
-            "maxPagesPerQuery": 1,
-            "resultsPerPage": 5,
-        }
-        
-        run = client.actor('apify/google-search-scraper').call(run_input=run_input)
+        # Try a single, broad search strategy to keep it fast (under 15s)
+        # We drop the strict quotes around the name so Google can match variations like "F.O. Ogunsola"
+        query = f'site:scholar.google.com/citations {full_name} "{affiliation}"'
+        search_queries = [query]
         
         user_id = None
-        for item in client.dataset(run.default_dataset_id).iterate_items():
-            print(f"Item: {item}")
-            if 'organicResults' in item:
-                for res in item['organicResults']:
-                    url = res.get('url', '')
-                    print(f"Result URL: {url}")
-                    if 'user=' in url:
-                        import urllib.parse
-                        parsed = urllib.parse.urlparse(url)
-                        qs = urllib.parse.parse_qs(parsed.query)
-                        if 'user' in qs:
-                            user_id = qs['user'][0]
-                            print(f"Found User ID: {user_id}")
-                            break
+        matched_url = None
+        
+        for query in search_queries:
             if user_id:
                 break
+            try:
+                run_input = {
+                    "queries": query,
+                    "maxPagesPerQuery": 1,
+                    "resultsPerPage": 10,
+                }
+                
+                run = client.actor('apify/google-search-scraper').call(run_input=run_input)
+                
+                for item in client.dataset(run.default_dataset_id).iterate_items():
+                    if 'organicResults' in item:
+                        for res in item['organicResults']:
+                            url = res.get('url', '')
+                            title = res.get('title', '').lower()
+                            snippet = res.get('description', '').lower()
+                            
+                            if 'user=' not in url:
+                                continue
+                            
+                            # Fuzzy match: check if last name appears in the title/snippet
+                            # and if the affiliation or "lagos" appears somewhere
+                            last_lower = last_name.lower()
+                            first_lower = first_name.lower()
+                            affil_lower = affiliation.lower()
+                            
+                            name_match = last_lower in title or last_lower in snippet
+                            affil_match = (
+                                affil_lower in title or affil_lower in snippet
+                                or 'lagos' in title or 'lagos' in snippet
+                                or 'unilag' in title or 'unilag' in snippet
+                            )
+                            
+                            if name_match and affil_match:
+                                parsed = urllib.parse.urlparse(url)
+                                qs = urllib.parse.parse_qs(parsed.query)
+                                if 'user' in qs:
+                                    user_id = qs['user'][0]
+                                    matched_url = url
+                                    print(f"[MATCH] Found '{full_name}' -> user_id={user_id} via query: {query}")
+                                    break
+                            elif name_match:
+                                # Weaker match - save as fallback
+                                parsed = urllib.parse.urlparse(url)
+                                qs = urllib.parse.parse_qs(parsed.query)
+                                if 'user' in qs and not user_id:
+                                    user_id = qs['user'][0]
+                                    matched_url = url
+                                    print(f"[WEAK MATCH] Found '{full_name}' -> user_id={user_id} (name only)")
+                    if user_id:
+                        break
+            except Exception as qe:
+                print(f"[Search] Query failed: {query} -> {qe}")
+                continue
                 
         if user_id:
             metrics = scrape_scholar_metrics(user_id)
