@@ -319,7 +319,7 @@ def _scrape_metrics_requests(user_id):
             response = session.get(profile_url, timeout=15)
             
             html_content = ""
-            if response.status_code in (429, 503):
+            if response.status_code in (429, 503) or (response.status_code == 200 and ("g-recaptcha" in response.text.lower() or "sorry" in response.text.lower() or "did not match any articles" in response.text.lower())):
                 # Fallback to Apify if Google blocks the IP (e.g. on Render)
                 import os
                 from apify_client import ApifyClient
@@ -1025,6 +1025,7 @@ def search_individual():
         
         user_id = None
         matched_url = None
+        debug_info = []
         
         for query in search_queries:
             if user_id:
@@ -1080,11 +1081,17 @@ def search_individual():
                     if user_id:
                         break
             except Exception as qe:
+                debug_info.append(f"Search Query Exception: {str(qe)}")
                 print(f"[Search] Query failed: {query} -> {qe}")
                 continue
                 
         if user_id:
-            metrics = scrape_scholar_metrics(user_id)
+            try:
+                metrics = scrape_scholar_metrics(user_id)
+            except Exception as me:
+                metrics = None
+                debug_info.append(f"Metrics Scrape Exception: {str(me)}")
+
             if metrics:
                 profile_name = metrics.get('Exact_Name', full_name)
                 profile_dept = metrics.get('Exact_Affiliation', affiliation)
@@ -1102,15 +1109,17 @@ def search_individual():
                         'I10_Index_Since_2021': str(metrics.get('I10_Index_Since_2021', 0)),
                     }
                 })
+            else:
+                debug_info.append(f"Found user_id {user_id}, but scrape_scholar_metrics returned None.")
 
         return jsonify({
             'success': False, 
-            'error': f'No profile found for {full_name}. Please check the spelling or try a different name format.'
+            'error': f'No profile found for {full_name}. Debug Info: {"; ".join(debug_info)}'
         })
     
     except Exception as e:
         print(f"[DEBUG] Search individual exception: {e}")
-        return jsonify({'success': False, 'error': str(e)})
+        return jsonify({'success': False, 'error': f"Fatal Error: {str(e)}"})
 
 @app.route('/download', methods=['POST'])
 def download():
