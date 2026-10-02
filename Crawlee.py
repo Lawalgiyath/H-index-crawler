@@ -330,6 +330,16 @@ def _scrape_metrics_requests(user_id):
                 "H_Index_All": "0", "H_Index_Since_2021": "0",
                 "I10_Index_All": "0", "I10_Index_Since_2021": "0"
             }
+            
+            # Extract Name and Affiliation
+            name_elem = soup.select_one("#gsc_prf_in")
+            if name_elem:
+                metrics["Exact_Name"] = name_elem.text.strip()
+            
+            affil_elem = soup.select_one(".gsc_prf_il")
+            if affil_elem:
+                metrics["Exact_Affiliation"] = affil_elem.text.strip()
+
             for row in table_rows:
                 header = row.select_one(".gsc_rsb_sc1")
                 values = row.select(".gsc_rsb_std")
@@ -892,10 +902,17 @@ def crawl():
             })
         else:
             metrics = scrape_scholar_metrics(user_id)
-            record = {"Name": name, "Department": department}
             if metrics:
+                record = {
+                    "Name": metrics.get("Exact_Name", name),
+                    "Department": metrics.get("Exact_Affiliation", department)
+                }
+                # Remove them from metrics so they don't duplicate as extra columns
+                metrics.pop("Exact_Name", None)
+                metrics.pop("Exact_Affiliation", None)
                 record.update(metrics)
             else:
+                record = {"Name": name, "Department": department}
                 record.update({
                     "Citations_All": "N/A", "Citations_Since_2021": "N/A",
                     "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
@@ -1044,24 +1061,14 @@ def search_individual():
         if user_id:
             metrics = scrape_scholar_metrics(user_id)
             if metrics:
-                # Get exact name from profile if possible
-                profile_name = full_name
-                try:
-                    import requests
-                    from bs4 import BeautifulSoup
-                    resp = requests.get(f"https://scholar.google.com/citations?user={user_id}&hl=en", headers=HEADERS)
-                    soup = BeautifulSoup(resp.text, "html.parser")
-                    name_elem = soup.select_one("#gsc_prf_in")
-                    if name_elem:
-                        profile_name = name_elem.text
-                except:
-                    pass
+                profile_name = metrics.get('Exact_Name', full_name)
+                profile_dept = metrics.get('Exact_Affiliation', affiliation)
 
                 return jsonify({
                     'success': True,
                     'result': {
                         'Name': profile_name,
-                        'Department': affiliation,
+                        'Department': profile_dept,
                         'Citations_All': str(metrics.get('Citations_All', 0)),
                         'Citations_Since_2021': str(metrics.get('Citations_Since_2021', 0)),
                         'H_Index_All': str(metrics.get('H_Index_All', 0)),
