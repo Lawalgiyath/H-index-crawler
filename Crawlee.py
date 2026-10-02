@@ -237,19 +237,13 @@ def convert_document_to_json(file_path, filename, default_department="University
 _scholarly_ready = False
 
 def _setup_scholarly():
-    """Configure scholarly with free proxy generator on first use."""
+    """Configure scholarly. We removed FreeProxies() because it hangs indefinitely and causes timeouts."""
     global _scholarly_ready
     if _scholarly_ready or not SCHOLARLY_AVAILABLE:
         return
     try:
-        pg = ProxyGenerator()
-        # Use ScraperAPI free tier - rotates IPs automatically
-        success = pg.FreeProxies()
-        if success:
-            scholarly.use_proxy(pg)
-            print("[SCHOLARLY] Free proxy generator active")
-        else:
-            print("[SCHOLARLY] No proxies - using direct (may be blocked on cloud)")
+        # DO NOT use FreeProxies() as it hangs the entire process trying to test public proxies.
+        print("[SCHOLARLY] Using direct connection for speed.")
         _scholarly_ready = True
     except Exception as e:
         print(f"[SCHOLARLY] Proxy setup failed: {e} - continuing without proxy")
@@ -311,39 +305,8 @@ def _get_scholar_id_requests(name):
     return None
 
 def scrape_scholar_metrics(user_id):
-    """Get citation metrics for a Scholar user ID using scholarly."""
-    _setup_scholarly()
-
-    if SCHOLARLY_AVAILABLE:
-        try:
-            author = scholarly.search_author_id(user_id)
-            author = scholarly.fill(author, sections=['indices'])
-            cites_per_year = author.get('cites_per_year', {})
-
-            # Recent = since 2021
-            recent_citations = sum(
-                v for y, v in cites_per_year.items() if int(y) >= 2021
-            ) if cites_per_year else 0
-
-            hindex     = author.get('hindex',     0)
-            hindex5y   = author.get('hindex5y',   0)
-            i10index   = author.get('i10index',   0)
-            i10index5y = author.get('i10index5y', 0)
-            citedby    = author.get('citedby',    0)
-
-            return {
-                "Citations_All":        str(citedby),
-                "Citations_Since_2021": str(recent_citations),
-                "H_Index_All":          str(hindex),
-                "H_Index_Since_2021":   str(hindex5y),
-                "I10_Index_All":        str(i10index),
-                "I10_Index_Since_2021": str(i10index5y),
-            }
-        except Exception as e:
-            print(f"[scholarly] Error fetching metrics for {user_id}: {e}")
-            # Fall through to requests fallback
-
-    # Fallback: raw requests
+    """Get citation metrics for a Scholar user ID using raw requests for speed."""
+    # scholarly hangs indefinitely without proxies, so we bypass it directly to raw requests
     return _scrape_metrics_requests(user_id)
 
 def _scrape_metrics_requests(user_id):
@@ -954,6 +917,9 @@ def crawl():
 def search_individual():
     """Search for a single person by first and last name"""
     try:
+        import urllib.parse, requests
+        from bs4 import BeautifulSoup
+        
         data = request.json
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
@@ -966,8 +932,6 @@ def search_individual():
         
         # Fallback: if user pasted a URL instead of a name
         if 'user=' in full_name:
-            import urllib.parse, requests
-            from bs4 import BeautifulSoup
             user_id = ""
             for token in full_name.split():
                 if 'user=' in token:
@@ -1013,8 +977,8 @@ def search_individual():
         full_name = f"{first_name} {last_name}".strip()
         
         # Try a single, broad search strategy to keep it fast (under 15s)
-        # We drop the strict quotes around the name so Google can match variations like "F.O. Ogunsola"
-        query = f'site:scholar.google.com/citations {full_name} "{affiliation}"'
+        # We drop the strict site: operator because Google Search sometimes doesn't index Scholar profiles reliably under that exact path
+        query = f'{full_name} "{affiliation}" Google Scholar citations'
         search_queries = [query]
         
         user_id = None
@@ -1113,6 +1077,7 @@ def search_individual():
         })
     
     except Exception as e:
+        print(f"[DEBUG] Search individual exception: {e}")
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/download', methods=['POST'])
