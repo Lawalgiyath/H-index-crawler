@@ -317,13 +317,37 @@ def _scrape_metrics_requests(user_id):
             session = requests.Session()
             session.headers.update(HEADERS)
             response = session.get(profile_url, timeout=15)
+            
+            html_content = ""
             if response.status_code in (429, 503):
-                time.sleep(random.uniform(10, 15))
-                continue
-            if response.status_code != 200:
+                # Fallback to Apify if Google blocks the IP (e.g. on Render)
+                import os
+                from apify_client import ApifyClient
+                token = os.environ.get('APIFY_TOKEN')
+                if token:
+                    print("[Fallback] Using Apify Cheerio Scraper for metrics...")
+                    client = ApifyClient(token)
+                    run_input = {
+                        "startUrls": [{"url": profile_url}],
+                        "pageFunction": "async function pageFunction(context) { const $ = context.$; return { html: $('body').html() }; }"
+                    }
+                    run = client.actor('apify/cheerio-scraper').call(run_input=run_input)
+                    for item in client.dataset(run.default_dataset_id).iterate_items():
+                        html_content = item.get("html", "")
+                        break
+                if not html_content:
+                    time.sleep(random.uniform(5, 10))
+                    continue
+            elif response.status_code != 200:
                 time.sleep(random.uniform(3, 5))
                 continue
-            soup = BeautifulSoup(response.text, "html.parser")
+            else:
+                html_content = response.text
+
+            if not html_content:
+                continue
+
+            soup = BeautifulSoup(html_content, "html.parser")
             table_rows = soup.select("#gsc_rsb_st tr")
             metrics = {
                 "Citations_All": "0", "Citations_Since_2021": "0",
