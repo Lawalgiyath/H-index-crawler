@@ -646,27 +646,91 @@ INDEX_HTML = """
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-50');
             loader.classList.remove('hidden');
-            resultsContainer.innerHTML = '<div class="text-center py-16 text-slate-500"><div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-unilagMaroon border-t-transparent mb-3"></div><p class="text-sm">Processing profiles across Google Scholar...</p></div>';
+            resultsContainer.innerHTML = '<div class="text-center py-16 text-slate-500"><div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-unilagMaroon border-t-transparent mb-3"></div><p class="text-sm" id="progressText">Parsing document...</p></div>';
             downloadContainer.classList.add('hidden');
 
             try {
+                // 1. Upload and parse file
                 const response = await fetch('/crawl', {
                     method: 'POST',
                     body: formData
                 });
                 const data = await response.json();
 
-                if (data.success) {
-                    globalResults = data.results;
+                if (!data.success) {
+                    resultsContainer.innerHTML = `<div class="text-center py-16 text-rose-600"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p class="text-sm font-semibold">${data.error}</p></div>`;
+                    lucide.createIcons();
+                    return;
+                }
+                
+                const staffList = data.staff_list;
+                if (!staffList || staffList.length === 0) {
+                    resultsContainer.innerHTML = `<div class="text-center py-16 text-slate-500"><p class="text-sm">No valid names found in document.</p></div>`;
+                    return;
+                }
+
+                // 2. Process each staff member individually
+                // We clear globalResults if user uploaded a new batch, or we can append? Let's append to existing table!
+                // Actually, let's keep it simple: we render the table first and then append.
+                if (globalResults.length === 0) {
+                    renderTable([]); // Just to draw headers
+                }
+                
+                let processedCount = 0;
+                
+                for (let i = 0; i < staffList.length; i++) {
+                    const staff = staffList[i];
+                    document.getElementById('progressText').innerText = `Processing ${i + 1} of ${staffList.length}: ${staff.name}...`;
+                    
+                    // Call individual search
+                    let names = staff.name.split(' ');
+                    let first = names.length > 1 ? names[0] : staff.name;
+                    let last = names.length > 1 ? names.slice(1).join(' ') : '';
+                    
+                    try {
+                        const res = await fetch('/search_individual', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ 
+                                first_name: first, 
+                                last_name: last,
+                                affiliation: staff.department || "University of Lagos"
+                            })
+                        });
+                        const resData = await res.json();
+                        
+                        if (resData.success && resData.result) {
+                            globalResults.push(resData.result);
+                        } else {
+                            // If failed to find, add blank record
+                            globalResults.push({
+                                "Name": staff.name, "Department": staff.department || "University of Lagos",
+                                "Citations_All": "N/A", "Citations_Since_2021": "N/A",
+                                "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
+                                "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
+                            });
+                        }
+                    } catch (err) {
+                        console.error("Individual search failed for", staff.name, err);
+                        globalResults.push({
+                            "Name": staff.name, "Department": staff.department || "University of Lagos",
+                            "Citations_All": "N/A", "Citations_Since_2021": "N/A",
+                            "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
+                            "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
+                        });
+                    }
+                    
+                    processedCount++;
                     saveData();
                     renderTable(globalResults);
                     downloadContainer.classList.remove('hidden');
-                    showToast("Document processed successfully.");
-                } else {
-                    resultsContainer.innerHTML = `<div class="text-center py-16 text-rose-600"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p class="text-sm font-semibold">${data.error}</p></div>`;
-                    lucide.createIcons();
                 }
+                
+                document.getElementById('progressText').innerText = `Completed processing ${processedCount} records!`;
+                showToast("Batch processing completed!");
+                
             } catch (err) {
+                console.error(err);
                 resultsContainer.innerHTML = `<div class="text-center py-16 text-rose-600"><i data-lucide="alert-circle" class="w-8 h-8 mx-auto mb-2"></i><p class="text-sm font-semibold">Network error occurred. This might happen if:</p><ul class="text-xs mt-2 list-disc list-inside"><li>Google Scholar is blocking the server IP</li><li>Too many requests were made</li><li>Internet connection issue</li></ul><p class="text-xs mt-4">Try again with fewer names or wait a few minutes.</p></div>`;
                 lucide.createIcons();
             } finally {
@@ -927,49 +991,9 @@ def crawl():
             os.remove(temp_path)
         return jsonify({"success": False, "error": f"Error processing file: {str(e)}"})
     
-    results = []
-    for staff in staff_list:
-        name = staff.get("name")
-        department = staff.get("department", "University of Lagos")
-        if not name:
-            continue
-        
-        user_id = get_scholar_id(name)
-        if not user_id:
-            results.append({
-                "Name": name, "Department": department,
-                "Citations_All": "N/A", "Citations_Since_2021": "N/A",
-                "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
-                "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
-            })
-        else:
-            metrics = scrape_scholar_metrics(user_id)
-            if metrics:
-                record = {
-                    "Name": metrics.get("Exact_Name", name),
-                    "Department": metrics.get("Exact_Affiliation", department)
-                }
-                # Remove them from metrics so they don't duplicate as extra columns
-                metrics.pop("Exact_Name", None)
-                metrics.pop("Exact_Affiliation", None)
-                record.update(metrics)
-            else:
-                record = {"Name": name, "Department": department}
-                record.update({
-                    "Citations_All": "N/A", "Citations_Since_2021": "N/A",
-                    "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
-                    "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
-                })
-            results.append(record)
-        time.sleep(random.uniform(3, 6))  # Increased delay to avoid blocking
-    
-    df = pd.DataFrame(results)
-    csv_string = df.to_csv(index=False)
-    
     return jsonify({
         "success": True,
-        "results": results,
-        "csv_data": csv_string
+        "staff_list": staff_list
     })
 
 @app.route('/search_individual', methods=['POST'])
