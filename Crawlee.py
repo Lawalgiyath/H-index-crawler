@@ -271,7 +271,24 @@ def get_scholar_id(name):
             print(f"[scholarly] Error searching {name}: {e}")
             # Fall through to requests fallback
 
-    # Fallback: raw requests (works locally, may fail on cloud)
+    # Fallback: raw requests or Apify (for cloud deployments like Render)
+    import os
+    token = os.environ.get('APIFY_TOKEN')
+    if token:
+        try:
+            print(f"[Apify Fallback] Searching Google Scholar for {name}...")
+            from apify_client import ApifyClient
+            client = ApifyClient(token)
+            run = client.actor('blackfalcondata/google-scholar-scraper').call(run_input={
+                "query": name, "maxResults": 3, "includeDetails": False, "compact": True
+            })
+            for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
+                res_id = item.get('userId')
+                if res_id:
+                    return res_id
+        except Exception as e:
+            print(f"[Apify Fallback] Error: {e}")
+            
     return _get_scholar_id_requests(name)
 
 def _get_scholar_id_requests(name):
@@ -1018,74 +1035,51 @@ def search_individual():
         
         full_name = f"{first_name} {last_name}".strip()
         
-        # Try a single, broad search strategy to keep it fast (under 15s)
-        # We drop the strict site: operator because Google Search sometimes doesn't index Scholar profiles reliably under that exact path
-        query = f'{full_name} "{affiliation}" Google Scholar citations'
-        search_queries = [query]
+        query = f'{full_name}'
         
         user_id = None
         matched_url = None
         debug_info = []
-        debug_info = []
         
-        for query in search_queries:
-            if user_id:
-                break
-            try:
-                run_input = {
-                    "queries": query,
-                    "maxPagesPerQuery": 1,
-                    "resultsPerPage": 10,
-                }
+        try:
+            run_input = {
+                "query": query,
+                "maxResults": 3,
+                "includeDetails": True,
+                "compact": False
+            }
+            
+            run = client.actor('blackfalcondata/google-scholar-scraper').call(run_input=run_input)
+            
+            for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
+                res_name = item.get('name', '').lower()
+                res_affil = item.get('affiliation', '').lower()
+                res_id = item.get('userId')
                 
-                run = client.actor('apify/google-search-scraper').call(run_input=run_input)
+                if not res_id:
+                    continue
                 
-                for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
-                    if 'organicResults' in item:
-                        for res in item['organicResults']:
-                            url = res.get('url', '')
-                            title = res.get('title', '').lower()
-                            snippet = res.get('description', '').lower()
-                            
-                            if 'user=' not in url:
-                                continue
-                            
-                            # Fuzzy match: check if last name appears in the title/snippet
-                            # and if the affiliation or "lagos" appears somewhere
-                            last_lower = last_name.lower()
-                            first_lower = first_name.lower()
-                            affil_lower = affiliation.lower()
-                            
-                            name_match = last_lower in title or last_lower in snippet
-                            affil_match = (
-                                affil_lower in title or affil_lower in snippet
-                                or 'lagos' in title or 'lagos' in snippet
-                                or 'unilag' in title or 'unilag' in snippet
-                            )
-                            
-                            if name_match and affil_match:
-                                parsed = urllib.parse.urlparse(url)
-                                qs = urllib.parse.parse_qs(parsed.query)
-                                if 'user' in qs:
-                                    user_id = qs['user'][0]
-                                    matched_url = url
-                                    print(f"[MATCH] Found '{full_name}' -> user_id={user_id} via query: {query}")
-                                    break
-                            elif name_match:
-                                # Weaker match - save as fallback
-                                parsed = urllib.parse.urlparse(url)
-                                qs = urllib.parse.parse_qs(parsed.query)
-                                if 'user' in qs and not user_id:
-                                    user_id = qs['user'][0]
-                                    matched_url = url
-                                    print(f"[WEAK MATCH] Found '{full_name}' -> user_id={user_id} (name only)")
-                    if user_id:
-                        break
-            except Exception as qe:
-                debug_info.append(f"Search Query Exception: {str(qe)}")
-                print(f"[Search] Query failed: {query} -> {qe}")
-                continue
+                last_lower = last_name.lower()
+                affil_lower = affiliation.lower()
                 
+                # Check fuzzy match
+                name_match = last_lower in res_name
+                affil_match = (
+                    affil_lower in res_name or affil_lower in res_affil
+                    or 'lagos' in res_affil or 'unilag' in res_affil
+                )
+                
+                if name_match and affil_match:
+                    user_id = res_id
+                    matched_url = f"https://scholar.google.com/citations?user={user_id}"
+                    break
+                elif name_match and not user_id:
+                    # Weaker match - fallback
+                    user_id = res_id
+                    matched_url = f"https://scholar.google.com/citations?user={user_id}"
+        except Exception as qe:
+            debug_info.append(f"Search Query Exception: {str(qe)}")
+            print(f"[Search] Query failed: {query} -> {qe}")
         if user_id:
             try:
                 metrics = scrape_scholar_metrics(user_id)
