@@ -93,6 +93,51 @@ def index():
     results = load_results()
     return render_template('index.html', count=len(results))
 
+@app.route('/api/search', methods=['POST'])
+def api_search():
+    data = request.json
+    name = data.get('name', '').strip()
+    department = data.get('department', '').strip()
+    
+    if not name or not department:
+        return jsonify({'success': False, 'error': 'Name and department are required'})
+        
+    record = {
+        "name": name, 
+        "Department": department,
+        "Citations_All": "N/A", "Citations_Since_2021": "N/A",
+        "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
+        "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
+    }
+    
+    profile_url = get_profile_url_with_apify(name)
+    if profile_url:
+        metrics = scrape_metrics_with_apify(profile_url, name)
+        if metrics:
+            record.update(metrics)
+        else:
+            return jsonify({'success': False, 'error': 'Found profile but could not extract metrics'})
+    else:
+        return jsonify({'success': False, 'error': 'Could not find a valid Google Scholar profile for this person'})
+        
+    results = load_results()
+    updated = False
+    for i, existing in enumerate(results):
+        if existing.get('name') == name:
+            results[i] = record
+            updated = True
+            break
+            
+    if not updated:
+        results.append(record)
+        
+    save_results(results)
+    
+    return jsonify({
+        'success': True,
+        'name': name
+    })
+
 @app.route('/api/bulk_crawl', methods=['POST'])
 def api_bulk_crawl():
     if 'file' not in request.files:
