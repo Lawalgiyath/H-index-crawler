@@ -41,7 +41,7 @@ def get_profile_url_with_apify(name):
         print(f"Apify search error: {str(e)[:50]}")
         return None
 
-def scrape_metrics_with_apify(profile_url):
+def scrape_metrics_with_apify(profile_url, queried_name):
     print(f"  Scraping metrics from profile...", end=" ")
     try:
         page_function = '''
@@ -50,7 +50,10 @@ def scrape_metrics_with_apify(profile_url):
             let metrics = {
                 Citations_All: "0", Citations_Since_2021: "0",
                 H_Index_All: "0", H_Index_Since_2021: "0",
-                I10_Index_All: "0", I10_Index_Since_2021: "0"
+                I10_Index_All: "0", I10_Index_Since_2021: "0",
+                Profile_Name: $("#gsc_prf_in").text().trim(),
+                Affiliation: $(".gsc_prf_il").first().text().trim(),
+                Email: $("#gsc_prf_ivh").text().trim()
             };
             $("#gsc_rsb_st tr").each((i, row) => {
                 const header = $(row).find(".gsc_rsb_sc1").text().trim().toLowerCase();
@@ -91,6 +94,26 @@ def scrape_metrics_with_apify(profile_url):
             # Clean up Apify debug info
             metrics.pop('#error', None)
             metrics.pop('#debug', None)
+            
+            # --- STRICT VALIDATION ---
+            prof_name = metrics.get('Profile_Name', '').lower()
+            affil = metrics.get('Affiliation', '').lower()
+            email_txt = metrics.get('Email', '').lower()
+            q_parts = queried_name.lower().split()
+            first_name = q_parts[0]
+            last_name = q_parts[-1]
+            
+            # If the last name isn't even in the profile name, reject it
+            if last_name not in prof_name:
+                print(f"Rejected: Name mismatch (Expected last name '{last_name}' in '{prof_name}')")
+                return None
+                
+            # If the first name isn't in the profile, we MUST verify they are from Lagos
+            if first_name not in prof_name:
+                has_lagos = "lagos" in affil or "unilag" in affil or "unilag" in email_txt or "lagos" in email_txt
+                if not has_lagos:
+                    print(f"Rejected: Profile is '{prof_name}' at '{affil}', not matching '{queried_name}' at UNILAG")
+                    return None
             
             print(f"(Cites: {metrics.get('Citations_All')}, H: {metrics.get('H_Index_All')})")
             return metrics
@@ -139,7 +162,7 @@ def main():
         
         if profile_url:
             # 2. Get Metrics
-            metrics = scrape_metrics_with_apify(profile_url)
+            metrics = scrape_metrics_with_apify(profile_url, name)
             if metrics:
                 record.update(metrics)
                 success_count += 1
