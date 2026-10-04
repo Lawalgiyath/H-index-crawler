@@ -529,6 +529,10 @@ INDEX_HTML = """
                             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Last Name</label>
                             <input type="text" id="lastName" placeholder="e.g., Adams" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
                         </div>
+                        <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Department</label>
+                            <input type="text" id="departmentIndividual" placeholder="e.g., Chemistry" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
+                        </div>
                         <button type="submit" id="searchIndividualBtn" class="w-full bg-unilagGold text-white font-semibold py-2.5 px-4 rounded-md hover:bg-opacity-90 transition duration-150 flex items-center justify-center space-x-2">
                             <i data-lucide="search" class="w-4 h-4"></i>
                             <span>Search & Add Profile</span>
@@ -870,8 +874,9 @@ INDEX_HTML = """
             
             const firstName = document.getElementById('firstName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();
+            const department = document.getElementById('departmentIndividual').value.trim();
             
-            if (!firstName || !lastName) return;
+            if (!firstName || !lastName || !department) return;
             
             const btn = document.getElementById('searchIndividualBtn');
             const loader = document.getElementById('individualLoader');
@@ -889,7 +894,7 @@ INDEX_HTML = """
                     body: JSON.stringify({
                         first_name: firstName,
                         last_name: lastName,
-                        affiliation: 'University of Lagos'
+                        affiliation: department
                     })
                 });
                 
