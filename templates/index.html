@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Google Scholar Metrics Scraper</title>
+    <title>Google Scholar Bulk Scraper</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -71,10 +71,10 @@
         }
         
         .form-row {
-            display: grid;
-            grid-template-columns: 1fr 1fr 2fr auto;
+            display: flex;
+            flex-direction: column;
             gap: 15px;
-            margin-bottom: 15px;
+            max-width: 500px;
         }
         
         .form-group {
@@ -83,18 +83,19 @@
         }
         
         label {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 5px;
-            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 8px;
+            font-weight: bold;
         }
         
-        input {
+        input[type="text"], input[type="file"] {
             padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 6px;
             font-size: 14px;
             transition: border 0.3s;
+            width: 100%;
         }
         
         input:focus {
@@ -103,19 +104,19 @@
         }
         
         .btn {
-            padding: 12px 30px;
+            padding: 14px 30px;
             border: none;
             border-radius: 6px;
-            font-size: 14px;
-            font-weight: 600;
+            font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
-            align-self: flex-end;
         }
         
         .btn-primary {
             background: #667eea;
             color: white;
+            margin-top: 10px;
         }
         
         .btn-primary:hover {
@@ -130,19 +131,18 @@
             transform: none;
         }
         
-        .btn-secondary {
-            background: #6c757d;
+        .btn-success {
+            background: #28a745;
             color: white;
+            padding: 10px 20px;
+            font-size: 14px;
         }
         
         .btn-danger {
             background: #dc3545;
             color: white;
-        }
-        
-        .btn-success {
-            background: #28a745;
-            color: white;
+            padding: 10px 20px;
+            font-size: 14px;
         }
         
         .results-section {
@@ -178,7 +178,7 @@
         .results-table th {
             padding: 12px;
             text-align: left;
-            font-size: 12px;
+            font-size: 13px;
             color: #666;
             font-weight: 600;
             border-bottom: 2px solid #e0e0e0;
@@ -199,6 +199,7 @@
             border-radius: 6px;
             margin-bottom: 15px;
             display: none;
+            font-weight: bold;
         }
         
         .status-success {
@@ -219,41 +220,31 @@
             border: 1px solid #bee5eb;
         }
         
-        .delete-btn {
-            background: #dc3545;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        
-        .delete-btn:hover {
-            background: #c82333;
-        }
-        
         .empty-state {
             text-align: center;
             padding: 60px 20px;
             color: #999;
         }
         
-        .empty-state svg {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 20px;
-            opacity: 0.5;
+        .progress-container {
+            display: none;
+            margin-top: 20px;
         }
         
-        @media (max-width: 768px) {
-            .form-row {
-                grid-template-columns: 1fr;
-            }
-            
-            .stats {
-                flex-direction: column;
-            }
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background-color: #f0f0f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 5px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: #667eea;
+            width: 0%;
+            transition: width 0.3s ease;
         }
     </style>
 </head>
@@ -261,62 +252,57 @@
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <h1>📚 Google Scholar Metrics Scraper</h1>
-            <p class="subtitle">Search and collect Google Scholar metrics one person at a time</p>
+            <h1>📚 Bulk Document Scraper</h1>
+            <p class="subtitle">Upload a document to crawl Scholar metrics for an entire department</p>
             
             <div class="stats">
                 <div class="stat-box">
                     <div class="stat-number" id="totalCount">{{ count }}</div>
-                    <div class="stat-label">Total Profiles</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-number" id="sessionCount">0</div>
-                    <div class="stat-label">Added This Session</div>
+                    <div class="stat-label">Total Profiles Scraped</div>
                 </div>
             </div>
         </div>
         
         <!-- Search Section -->
         <div class="search-section">
-            <h2 style="margin-bottom: 20px; color: #333;">Add New Profile</h2>
+            <h2 style="margin-bottom: 20px; color: #333;">Upload Document to Crawl</h2>
             
             <div id="statusMessage" class="status-message"></div>
             
-            <form id="searchForm">
+            <form id="uploadForm">
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="firstName">First Name</label>
-                        <input type="text" id="firstName" name="firstName" placeholder="e.g., Lawrence">
+                        <label for="department">Department Name <span style="color:red;">*</span></label>
+                        <input type="text" id="department" name="department" placeholder="e.g., Chemistry" required>
+                        <small style="color: #666; margin-top: 4px;">This department will be applied to all names in the document.</small>
                     </div>
                     
                     <div class="form-group">
-                        <label for="lastName">Last Name</label>
-                        <input type="text" id="lastName" name="lastName" placeholder="e.g., Ekebafe">
+                        <label for="file">Document (.json, .csv, .xlsx, .xls) <span style="color:red;">*</span></label>
+                        <input type="file" id="file" name="file" accept=".json,.csv,.xlsx,.xls" required>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="affiliation">Affiliation (Optional)</label>
-                        <input type="text" id="affiliation" name="affiliation" placeholder="University of Lagos" value="University of Lagos">
-                    </div>
-
-                    <div style="text-align: center; margin: 10px 0; color: #666; font-weight: bold;">OR</div>
-
-                    <div class="form-group">
-                        <label for="profileUrl">Direct Profile URL (Highly Recommended for accuracy)</label>
-                        <input type="text" id="profileUrl" name="profileUrl" placeholder="https://scholar.google.com/citations?user=...">
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary" id="searchBtn">
-                        🔍 Search
+                    <button type="submit" class="btn btn-primary" id="crawlBtn">
+                        🚀 Start Bulk Crawl
                     </button>
                 </div>
             </form>
+            
+            <div id="progressContainer" class="progress-container">
+                <div style="display: flex; justify-content: space-between; font-weight: bold; color: #333;">
+                    <span id="progressText">Processing...</span>
+                    <span id="progressPercent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div id="progressFill" class="progress-fill"></div>
+                </div>
+            </div>
         </div>
         
         <!-- Results Section -->
         <div class="results-section">
             <div class="results-header">
-                <h2 style="color: #333;">Results</h2>
+                <h2 style="color: #333;">Results DB</h2>
                 <div class="download-buttons">
                     <button class="btn btn-success" onclick="downloadCSV()" id="downloadCsvBtn">
                         📥 Download CSV
@@ -325,7 +311,7 @@
                         📥 Download Excel
                     </button>
                     <button class="btn btn-danger" onclick="clearAll()" id="clearBtn">
-                        🗑️ Clear All
+                        🗑️ Clear Database
                     </button>
                 </div>
             </div>
@@ -337,78 +323,95 @@
     </div>
     
     <script>
-        let sessionCount = 0;
-        
         // Load results on page load
         document.addEventListener('DOMContentLoaded', function() {
             loadResults();
         });
         
-        // Search form submission
-        document.getElementById('searchForm').addEventListener('submit', async function(e) {
+        // Form submission
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             
-            const firstName = document.getElementById('firstName').value.trim();
-            const lastName = document.getElementById('lastName').value.trim();
-            const affiliation = document.getElementById('affiliation').value.trim();
-            const profileUrl = document.getElementById('profileUrl').value.trim();
+            const department = document.getElementById('department').value.trim();
+            const fileInput = document.getElementById('file');
             
-            if (!profileUrl && (!firstName || !lastName)) {
-                showStatus('Please enter either a Direct Profile URL OR both first and last name', 'error');
+            if (!department) {
+                showStatus('Department is required.', 'error');
+                return;
+            }
+            if (!fileInput.files.length) {
+                showStatus('Please upload a document.', 'error');
                 return;
             }
             
-            // Disable button and show loading
-            const btn = document.getElementById('searchBtn');
-            btn.disabled = true;
-            btn.textContent = '🔄 Searching...';
+            const file = fileInput.files[0];
+            const allowedExts = ['json', 'csv', 'xlsx', 'xls'];
+            const ext = file.name.split('.').pop().toLowerCase();
             
-            if (profileUrl) {
-                showStatus('Extracting profile from URL...', 'loading');
-            } else {
-                showStatus(`Searching for ${firstName} ${lastName}...`, 'loading');
+            if (!allowedExts.includes(ext)) {
+                showStatus('Invalid file type. Only JSON, CSV, and Excel are allowed.', 'error');
+                return;
             }
             
-            const searchPayload = {
-                first_name: profileUrl ? profileUrl : firstName,
-                last_name: profileUrl ? "" : lastName,
-                affiliation: affiliation
-            };
+            const formData = new FormData();
+            formData.append('department', department);
+            formData.append('file', file);
+            
+            const btn = document.getElementById('crawlBtn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Crawl in Progress...';
+            
+            document.getElementById('progressContainer').style.display = 'block';
+            updateProgress(0, "Starting upload...");
             
             try {
-                const response = await fetch('/search_individual', {
+                // Poll for progress
+                const pollInterval = setInterval(checkProgress, 2000);
+                
+                const response = await fetch('/api/bulk_crawl', {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(searchPayload)
+                    body: formData
                 });
                 
+                clearInterval(pollInterval);
                 const result = await response.json();
                 
                 if (result.success) {
-                    showStatus(`✓ Found: ${result.name}`, 'success');
-                    
-                    // Clear form
-                    document.getElementById('firstName').value = '';
-                    document.getElementById('lastName').value = '';
-                    
-                    // Update session count
-                    sessionCount++;
-                    document.getElementById('sessionCount').textContent = sessionCount;
-                    
-                    // Reload results
+                    showStatus(`✓ Crawl Complete! Successfully found ${result.found} out of ${result.total} profiles.`, 'success');
+                    updateProgress(100, "Complete!");
+                    document.getElementById('uploadForm').reset();
                     loadResults();
                 } else {
-                    showStatus(`✗ ${result.error}`, 'error');
+                    showStatus(`✗ Error: ${result.error}`, 'error');
+                    document.getElementById('progressContainer').style.display = 'none';
                 }
             } catch (error) {
-                showStatus(`✗ Error: ${error.message}`, 'error');
+                showStatus(`✗ Connection Error: ${error.message}`, 'error');
+                document.getElementById('progressContainer').style.display = 'none';
             } finally {
                 btn.disabled = false;
-                btn.textContent = '🔍 Search';
+                btn.textContent = '🚀 Start Bulk Crawl';
             }
         });
+        
+        async function checkProgress() {
+            try {
+                const response = await fetch('/api/crawl_progress');
+                const data = await response.json();
+                if (data && data.total > 0) {
+                    const pct = Math.round((data.current / data.total) * 100);
+                    updateProgress(pct, `Processed ${data.current} of ${data.total} names...`);
+                }
+            } catch (e) {
+                console.log("Could not fetch progress");
+            }
+        }
+        
+        function updateProgress(percent, text) {
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressPercent').textContent = percent + '%';
+            document.getElementById('progressText').textContent = text;
+        }
         
         async function loadResults() {
             try {
@@ -416,18 +419,13 @@
                 const results = await response.json();
                 
                 document.getElementById('totalCount').textContent = results.length;
-                
                 const container = document.getElementById('resultsContainer');
                 
                 if (results.length === 0) {
                     container.innerHTML = `
                         <div class="empty-state">
-                            <svg fill="currentColor" viewBox="0 0 20 20">
-                                <path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/>
-                                <path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/>
-                            </svg>
-                            <h3>No results yet</h3>
-                            <p>Start by searching for a scholar above</p>
+                            <h3>No data in the database</h3>
+                            <p>Upload a document above to start crawling metrics.</p>
                         </div>
                     `;
                     return;
@@ -438,100 +436,64 @@
                         <thead>
                             <tr>
                                 <th>Name</th>
+                                <th>Department</th>
                                 <th>Citations</th>
                                 <th>H-index</th>
                                 <th>i10-index</th>
-                                <th>Affiliation</th>
-                                <th>Action</th>
+                                <th>Profile Status</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
                 
                 results.forEach(result => {
+                    const statusText = result.Citations_All !== "N/A" ? "✅ Found" : "❌ Not Found";
                     html += `
                         <tr>
+                            <td><strong>${result.name || result.Name}</strong></td>
+                            <td>${result.Department || result.department || 'N/A'}</td>
                             <td>
-                                <strong>${result.name}</strong><br>
-                                <small style="color: #999;">${result.user_id}</small>
-                            </td>
-                            <td>
-                                <strong>${result.citations_all}</strong> / ${result.citations_since}
-                                <br><small style="color: #999;">All / Since 2021</small>
+                                <strong>${result.Citations_All || 'N/A'}</strong> / ${result.Citations_Since_2021 || 'N/A'}
                             </td>
                             <td>
-                                <strong>${result.h_index_all}</strong> / ${result.h_index_since}
-                                <br><small style="color: #999;">All / Since 2021</small>
+                                <strong>${result.H_Index_All || 'N/A'}</strong> / ${result.H_Index_Since_2021 || 'N/A'}
                             </td>
                             <td>
-                                <strong>${result.i10_index_all}</strong> / ${result.i10_index_since}
-                                <br><small style="color: #999;">All / Since 2021</small>
+                                <strong>${result.I10_Index_All || 'N/A'}</strong> / ${result.I10_Index_Since_2021 || 'N/A'}
                             </td>
-                            <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                                ${result.affiliation}
-                            </td>
-                            <td>
-                                <button class="delete-btn" onclick="deleteResult('${result.user_id}')">Delete</button>
-                            </td>
+                            <td>${statusText}</td>
                         </tr>
                     `;
                 });
                 
-                html += `
-                        </tbody>
-                    </table>
-                `;
-                
+                html += `</tbody></table>`;
                 container.innerHTML = html;
             } catch (error) {
                 console.error('Error loading results:', error);
             }
         }
         
-        async function deleteResult(userId) {
-            if (!confirm('Delete this profile?')) return;
-            
-            try {
-                await fetch(`/api/delete/${userId}`, { method: 'DELETE' });
-                loadResults();
-                showStatus('Profile deleted', 'success');
-            } catch (error) {
-                showStatus('Error deleting profile', 'error');
-            }
-        }
-        
         async function clearAll() {
             if (!confirm('Clear ALL results? This cannot be undone.')) return;
-            
             try {
                 await fetch('/api/clear', { method: 'POST' });
                 loadResults();
-                sessionCount = 0;
-                document.getElementById('sessionCount').textContent = 0;
                 showStatus('All results cleared', 'success');
             } catch (error) {
                 showStatus('Error clearing results', 'error');
             }
         }
         
-        function downloadCSV() {
-            window.location.href = '/api/download/csv';
-        }
-        
-        function downloadExcel() {
-            window.location.href = '/api/download/excel';
-        }
+        function downloadCSV() { window.location.href = '/api/download/csv'; }
+        function downloadExcel() { window.location.href = '/api/download/excel'; }
         
         function showStatus(message, type) {
             const statusEl = document.getElementById('statusMessage');
             statusEl.className = `status-message status-${type}`;
             statusEl.textContent = message;
             statusEl.style.display = 'block';
-            
             if (type !== 'loading') {
-                setTimeout(() => {
-                    statusEl.style.display = 'none';
-                }, 5000);
+                setTimeout(() => { statusEl.style.display = 'none'; }, 8000);
             }
         }
     </script>
