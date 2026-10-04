@@ -1118,7 +1118,7 @@ def search_individual():
 
             if metrics:
                 profile_name = metrics.get('Exact_Name', full_name)
-                profile_dept = metrics.get('Exact_Affiliation', affiliation)
+                profile_dept = affiliation
 
                 return jsonify({
                     'success': True,
