@@ -1064,7 +1064,7 @@ def search_individual():
         
         full_name = f"{first_name} {last_name}".strip()
         
-        query = f'{full_name}'
+        query = f'{full_name} {affiliation}'
         
         user_id = None
         matched_url = None
@@ -1092,7 +1092,10 @@ def search_individual():
                 affil_lower = affiliation.lower()
                 
                 # Check fuzzy match
-                name_match = last_lower in res_name
+                last_parts = [p for p in last_lower.split() if len(p) > 2]
+                first_parts = [p for p in first_name.lower().split() if len(p) > 2]
+                all_parts = last_parts + first_parts
+                name_match = any(p in res_name for p in all_parts) if all_parts else (last_lower in res_name)
                 affil_match = (
                     affil_lower in res_name or affil_lower in res_affil
                     or 'lagos' in res_affil or 'unilag' in res_affil
