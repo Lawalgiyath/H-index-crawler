@@ -1064,7 +1064,7 @@ def search_individual():
         
         full_name = f"{first_name} {last_name}".strip()
         
-        query = f'{full_name} {affiliation}'
+        query = f'{full_name}'
         
         user_id = None
         matched_url = None
