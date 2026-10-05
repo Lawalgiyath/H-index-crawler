@@ -1111,7 +1111,10 @@ def search_individual():
                 all_parts = last_parts + first_parts
                 name_match = any(p in res_name for p in all_parts) if all_parts else (last_lower in res_name)
                 
-                if name_match:
+                email_domain = (item.get('verifiedEmailDomain') or '').lower()
+                email_match = 'unilag' in email_domain
+                
+                if name_match and email_match:
                     user_id = res_id
                     matched_url = f"https://scholar.google.com/citations?user={user_id}"
                     break
