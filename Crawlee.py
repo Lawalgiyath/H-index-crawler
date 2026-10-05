@@ -1087,7 +1087,7 @@ def search_individual():
         try:
             run_input = {
                 "query": query,
-                "maxResults": 3,
+                "maxResults": 20,
                 "includeDetails": True,
                 "compact": False
             }
