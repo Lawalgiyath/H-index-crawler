@@ -526,6 +526,10 @@ INDEX_HTML = """
                             <input type="text" id="firstName" placeholder="e.g., Luqman" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
                         </div>
                         <div>
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Middle Name (Optional)</label>
+                            <input type="text" id="middleName" placeholder="" class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
+                        </div>
+                        <div>
                             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Last Name</label>
                             <input type="text" id="lastName" placeholder="e.g., Adams" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
                         </div>
@@ -708,7 +712,7 @@ INDEX_HTML = """
                         } else {
                             // If failed to find, add blank record
                             globalResults.push({
-                                "Name": staff.name, "Department": staff.department || "University of Lagos",
+                                "Title": "", "Name": staff.name, "Department": staff.department || "University of Lagos", "Profile_URL": "",
                                 "Citations_All": "N/A", "Citations_Since_2021": "N/A",
                                 "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
                                 "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
@@ -717,7 +721,7 @@ INDEX_HTML = """
                     } catch (err) {
                         console.error("Individual search failed for", staff.name, err);
                         globalResults.push({
-                            "Name": staff.name, "Department": staff.department || "University of Lagos",
+                            "Title": "", "Name": staff.name, "Department": staff.department || "University of Lagos", "Profile_URL": "",
                             "Citations_All": "N/A", "Citations_Since_2021": "N/A",
                             "H_Index_All": "N/A", "H_Index_Since_2021": "N/A",
                             "I10_Index_All": "N/A", "I10_Index_Since_2021": "N/A"
@@ -756,8 +760,10 @@ INDEX_HTML = """
                 <table class="w-full text-left border-collapse text-xs">
                     <thead>
                         <tr class="bg-slate-100 text-slate-700 uppercase tracking-wider border-b border-slate-200">
+                            <th class="p-3 font-semibold">Title</th>
                             <th class="p-3 font-semibold">Staff Name</th>
                             <th class="p-3 font-semibold">Department</th>
+                            <th class="p-3 font-semibold">Profile URL</th>
                             <th class="p-3 font-semibold text-center">Citations (All)</th>
                             <th class="p-3 font-semibold text-center">Citations (2021+)</th>
                             <th class="p-3 font-semibold text-center">H-Index (All)</th>
@@ -773,8 +779,10 @@ INDEX_HTML = """
             results.forEach((row, index) => {
                 html += `
                     <tr class="hover:bg-slate-50 group transition-colors">
+                        <td class="p-3 font-medium text-slate-900 border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Title', this.innerText)">${row.Title || ''}</td>
                         <td class="p-3 font-medium text-slate-900 border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Name', this.innerText)">${row.Name}</td>
                         <td class="p-3 text-slate-600 border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Department', this.innerText)">${row.Department}</td>
+                        <td class="p-3 text-slate-500 truncate max-w-xs border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Profile_URL', this.innerText)">${row.Profile_URL || ''}</td>
                         <td class="p-3 text-center font-semibold text-unilagMaroon border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Citations_All', this.innerText)">${row.Citations_All}</td>
                         <td class="p-3 text-center font-semibold text-slate-700 border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'Citations_Since_2021', this.innerText)">${row.Citations_Since_2021}</td>
                         <td class="p-3 text-center border border-transparent focus-within:border-unilagGold focus-within:bg-white" contenteditable="true" onblur="updateVal(${index}, 'H_Index_All', this.innerText)">${row.H_Index_All}</td>
@@ -873,6 +881,7 @@ INDEX_HTML = """
             e.preventDefault();
             
             const firstName = document.getElementById('firstName').value.trim();
+            const middleName = document.getElementById('middleName').value.trim();
             const lastName = document.getElementById('lastName').value.trim();
             const department = document.getElementById('departmentIndividual').value.trim();
             
@@ -893,6 +902,7 @@ INDEX_HTML = """
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         first_name: firstName,
+                        middle_name: middleName,
                         last_name: lastName,
                         affiliation: department
                     })
@@ -1010,13 +1020,15 @@ def search_individual():
         
         data = request.json
         first_name = data.get('first_name', '').strip()
+        middle_name = data.get('middle_name', '').strip()
         last_name = data.get('last_name', '').strip()
         affiliation = data.get('affiliation', 'University of Lagos').strip()
         
         if not first_name and not last_name:
             return jsonify({'success': False, 'error': 'First name and last name required'})
         
-        full_name = f"{first_name} {last_name}".strip()
+        full_name = f"{first_name} {middle_name} {last_name}".strip()
+        full_name = " ".join(full_name.split())
         
         # Fallback: if user pasted a URL instead of a name
         if 'user=' in full_name:
@@ -1043,6 +1055,7 @@ def search_individual():
                     return jsonify({
                         'success': True,
                         'result': {
+                            'Title': '',
                             'Name': name,
                             'Department': affiliation,
                             'Citations_All': str(metrics.get('Citations_All', 0)),
@@ -1051,6 +1064,7 @@ def search_individual():
                             'H_Index_Since_2021': str(metrics.get('H_Index_Since_2021', 0)),
                             'I10_Index_All': str(metrics.get('I10_Index_All', 0)),
                             'I10_Index_Since_2021': str(metrics.get('I10_Index_Since_2021', 0)),
+                            'Profile_URL': f"https://scholar.google.com/citations?user={user_id}"
                         }
                     })
 
@@ -1122,10 +1136,29 @@ def search_individual():
             if metrics:
                 profile_name = metrics.get('Exact_Name', full_name)
                 profile_dept = affiliation
+                
+                title = ""
+                prefixes = ["prof. ", "prof ", "professor ", "dr. ", "dr ", "mr. ", "mr ", "mrs. ", "mrs ", "engr. ", "engr ", "arc. ", "arc ", "pharm. ", "pharm "]
+                lname = profile_name.lower()
+                for p in prefixes:
+                    if lname.startswith(p):
+                        # Use the original case for Title if possible, or just capitalize the prefix
+                        title = p.strip().capitalize()
+                        if title == "Prof": title = "Prof."
+                        elif title == "Dr": title = "Dr."
+                        elif title == "Mr": title = "Mr."
+                        elif title == "Mrs": title = "Mrs."
+                        elif title == "Engr": title = "Engr."
+                        elif title == "Arc": title = "Arc."
+                        elif title == "Pharm": title = "Pharm."
+                        
+                        profile_name = profile_name[len(p):].strip()
+                        break
 
                 return jsonify({
                     'success': True,
                     'result': {
+                        'Title': title,
                         'Name': profile_name,
                         'Department': profile_dept,
                         'Citations_All': str(metrics.get('Citations_All', 0)),
@@ -1134,6 +1167,7 @@ def search_individual():
                         'H_Index_Since_2021': str(metrics.get('H_Index_Since_2021', 0)),
                         'I10_Index_All': str(metrics.get('I10_Index_All', 0)),
                         'I10_Index_Since_2021': str(metrics.get('I10_Index_Since_2021', 0)),
+                        'Profile_URL': f"https://scholar.google.com/citations?user={user_id}"
                     }
                 })
             else:
