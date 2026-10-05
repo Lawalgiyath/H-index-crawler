@@ -1106,8 +1106,8 @@ def search_individual():
                 affil_lower = affiliation.lower()
                 
                 # Check fuzzy match
-                last_parts = [p for p in last_lower.split() if len(p) > 2]
-                first_parts = [p for p in first_name.lower().split() if len(p) > 2]
+                last_parts = [p for p in last_lower.replace('-', ' ').split() if len(p) > 2]
+                first_parts = [p for p in first_name.lower().replace('-', ' ').split() if len(p) > 2]
                 all_parts = last_parts + first_parts
                 name_match = any(p in res_name for p in all_parts) if all_parts else (last_lower in res_name)
                 affil_match = (
