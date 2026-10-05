@@ -1095,8 +1095,8 @@ def search_individual():
             run = client.actor('blackfalcondata/google-scholar-scraper').call(run_input=run_input)
             
             for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
-                res_name = item.get('name', '').lower()
-                res_affil = item.get('affiliation', '').lower()
+                res_name = (item.get('name') or '').lower()
+                res_affil = (item.get('affiliation') or '').lower()
                 res_id = item.get('userId')
                 
                 if not res_id:
