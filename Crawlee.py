@@ -1110,12 +1110,8 @@ def search_individual():
                 first_parts = [p for p in first_name.lower().replace('-', ' ').split() if len(p) > 2]
                 all_parts = last_parts + first_parts
                 name_match = any(p in res_name for p in all_parts) if all_parts else (last_lower in res_name)
-                affil_match = (
-                    affil_lower in res_name or affil_lower in res_affil
-                    or 'lagos' in res_affil or 'unilag' in res_affil
-                )
                 
-                if name_match and affil_match:
+                if name_match:
                     user_id = res_id
                     matched_url = f"https://scholar.google.com/citations?user={user_id}"
                     break
