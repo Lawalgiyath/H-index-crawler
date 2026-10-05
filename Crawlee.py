@@ -523,15 +523,15 @@ INDEX_HTML = """
                     <form id="individualForm" class="space-y-4">
                         <div>
                             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">First Name</label>
-                            <input type="text" id="firstName" placeholder="e.g., Luqman" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
+                            <input type="text" id="firstName" placeholder="e.g., John" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Middle Name (Optional)</label>
-                            <input type="text" id="middleName" placeholder="" class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
+                            <input type="text" id="middleName" placeholder="e.g., Adeyemi" class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
                         </div>
                         <div>
-                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Last Name</label>
-                            <input type="text" id="lastName" placeholder="e.g., Adams" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
+                            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Surname</label>
+                            <input type="text" id="lastName" placeholder="e.g., Doe" required class="w-full px-3 py-2 border border-slate-200 rounded-md focus:outline-none focus:ring-2 focus:ring-unilagMaroon text-sm">
                         </div>
                         <div>
                             <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Department</label>
