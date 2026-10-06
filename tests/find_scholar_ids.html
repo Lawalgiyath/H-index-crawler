@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Find Google Scholar IDs - UNILAG Chemistry</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+        h1 { color: #333; }
+        .staff-item { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .confirmed { background-color: #d4edda; }
+        .needs-search { background-color: #fff3cd; }
+        .name { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+        .link { margin: 5px 0; }
+        .link a { color: #0066cc; text-decoration: none; }
+        .link a:hover { text-decoration: underline; }
+        .user-id { color: #28a745; font-family: monospace; }
+        .instructions { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin-bottom: 20px; }
+        input[type="text"] { width: 300px; padding: 5px; margin-right: 10px; }
+        button { padding: 5px 10px; background-color: #007bff; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <h1>Find Google Scholar IDs - UNILAG Chemistry Department</h1>
+    
+    <div class="instructions">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Click the search link for each staff member (yellow boxes)</li>
+            <li>Find their profile in Google Scholar</li>
+            <li>Copy the user ID from the profile URL (e.g., citations?user=<strong>ABC123XYZ</strong>&hl=en)</li>
+            <li>Enter it in the input box and click "Save"</li>
+            <li>Once all IDs are collected, download the JSON file</li>
+        </ol>
+        <p><strong>Progress:</strong> <span id="progress">2/27 confirmed</span></p>
+        <button onclick="downloadJSON()">Download JSON with IDs</button>
+    </div>
+    
+
+    <div class="staff-item confirmed" id="staff-0">
+        <div class="name">1. Lawrence Ekebafe ✓</div>
+        <div class="user-id">ID: s9d437QAAAAJ</div>
+        <div class="link"><a href="https://scholar.google.com/citations?user=s9d437QAAAAJ&hl=en" target="_blank">View Profile</a></div>
+    </div>
+
+    <div class="staff-item confirmed" id="staff-1">
+        <div class="name">2. Wesley Okiei ✓</div>
+        <div class="user-id">ID: tQgb_bgAAAAJ</div>
+        <div class="link"><a href="https://scholar.google.com/citations?user=tQgb_bgAAAAJ&hl=en" target="_blank">View Profile</a></div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-2">
+        <div class="name">3. Babajide Alo</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Babajide%20Alo%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-2" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(2, 'Babajide Alo')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-3">
+        <div class="name">4. Modupe Ogunlesi</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Modupe%20Ogunlesi%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-3" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(3, 'Modupe Ogunlesi')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-4">
+        <div class="name">5. Oluwole Familoni</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwole%20Familoni%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-4" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(4, 'Oluwole Familoni')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-5">
+        <div class="name">6. Kehinde Olayinka</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Kehinde%20Olayinka%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-5" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(5, 'Kehinde Olayinka')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-6">
+        <div class="name">7. Olayinka Asekun</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Olayinka%20Asekun%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-6" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(6, 'Olayinka Asekun')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-7">
+        <div class="name">8. Olusegun Ayejuyo</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Olusegun%20Ayejuyo%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-7" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(7, 'Olusegun Ayejuyo')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-8">
+        <div class="name">9. Luqman Adams</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Luqman%20Adams%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-8" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(8, 'Luqman Adams')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-9">
+        <div class="name">10. Tolulope Fasina</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Tolulope%20Fasina%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-9" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(9, 'Tolulope Fasina')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-10">
+        <div class="name">11. Temilola Oluseyi</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Temilola%20Oluseyi%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-10" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(10, 'Temilola Oluseyi')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-11">
+        <div class="name">12. Adebayo Akinbulu</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Adebayo%20Akinbulu%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-11" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(11, 'Adebayo Akinbulu')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-12">
+        <div class="name">13. Rose Alani</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Rose%20Alani%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-12" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(12, 'Rose Alani')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-13">
+        <div class="name">14. Rafiu Shaibu</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Rafiu%20Shaibu%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-13" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(13, 'Rafiu Shaibu')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-14">
+        <div class="name">15. Taofeeq Ogunbayo</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Taofeeq%20Ogunbayo%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-14" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(14, 'Taofeeq Ogunbayo')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-15">
+        <div class="name">16. Oluwakemi Whenu</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwakemi%20Whenu%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-15" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(15, 'Oluwakemi Whenu')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-16">
+        <div class="name">17. Idris Olasupo</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Idris%20Olasupo%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-16" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(16, 'Idris Olasupo')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-17">
+        <div class="name">18. Akeem Abayomi</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Akeem%20Abayomi%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-17" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(17, 'Akeem Abayomi')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-18">
+        <div class="name">19. Ayorinde Nejo</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Ayorinde%20Nejo%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-18" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(18, 'Ayorinde Nejo')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-19">
+        <div class="name">20. Khadijah Abdulwahab</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Khadijah%20Abdulwahab%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-19" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(19, 'Khadijah Abdulwahab')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-20">
+        <div class="name">21. Josephat Izunobi</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Josephat%20Izunobi%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-20" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(20, 'Josephat Izunobi')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-21">
+        <div class="name">22. Cordelia Dueke</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Cordelia%20Dueke%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-21" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(21, 'Cordelia Dueke')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-22">
+        <div class="name">23. Felicia Ejiah</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Felicia%20Ejiah%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-22" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(22, 'Felicia Ejiah')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-23">
+        <div class="name">24. Oluwatoyin Adetunde</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwatoyin%20Adetunde%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-23" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(23, 'Oluwatoyin Adetunde')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-24">
+        <div class="name">25. Kelechi Asekunowo</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Kelechi%20Asekunowo%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-24" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(24, 'Kelechi Asekunowo')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-25">
+        <div class="name">26. Oluwabusayo Semire</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwabusayo%20Semire%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-25" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(25, 'Oluwabusayo Semire')">Save ID</button>
+        </div>
+    </div>
+
+    <div class="staff-item needs-search" id="staff-26">
+        <div class="name">27. Adetoun Akitoye</div>
+        <div class="link"><a href="https://scholar.google.com/citations?view_op=search_authors&mauthors=Adetoun%20Akitoye%20University%20of%20Lagos&hl=en" target="_blank">🔍 Search on Google Scholar</a></div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="userid-26" placeholder="Enter user ID (e.g., ABC123XYZ)" />
+            <button onclick="saveUserId(26, 'Adetoun Akitoye')">Save ID</button>
+        </div>
+    </div>
+
+    <script>
+        let staffData = [{"name": "Lawrence Ekebafe", "status": "confirmed", "user_id": "s9d437QAAAAJ", "url": "https://scholar.google.com/citations?user=s9d437QAAAAJ&hl=en"}, {"name": "Wesley Okiei", "status": "confirmed", "user_id": "tQgb_bgAAAAJ", "url": "https://scholar.google.com/citations?user=tQgb_bgAAAAJ&hl=en"}, {"name": "Babajide Alo", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Babajide%20Alo%20University%20of%20Lagos&hl=en"}, {"name": "Modupe Ogunlesi", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Modupe%20Ogunlesi%20University%20of%20Lagos&hl=en"}, {"name": "Oluwole Familoni", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwole%20Familoni%20University%20of%20Lagos&hl=en"}, {"name": "Kehinde Olayinka", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Kehinde%20Olayinka%20University%20of%20Lagos&hl=en"}, {"name": "Olayinka Asekun", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Olayinka%20Asekun%20University%20of%20Lagos&hl=en"}, {"name": "Olusegun Ayejuyo", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Olusegun%20Ayejuyo%20University%20of%20Lagos&hl=en"}, {"name": "Luqman Adams", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Luqman%20Adams%20University%20of%20Lagos&hl=en"}, {"name": "Tolulope Fasina", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Tolulope%20Fasina%20University%20of%20Lagos&hl=en"}, {"name": "Temilola Oluseyi", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Temilola%20Oluseyi%20University%20of%20Lagos&hl=en"}, {"name": "Adebayo Akinbulu", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Adebayo%20Akinbulu%20University%20of%20Lagos&hl=en"}, {"name": "Rose Alani", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Rose%20Alani%20University%20of%20Lagos&hl=en"}, {"name": "Rafiu Shaibu", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Rafiu%20Shaibu%20University%20of%20Lagos&hl=en"}, {"name": "Taofeeq Ogunbayo", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Taofeeq%20Ogunbayo%20University%20of%20Lagos&hl=en"}, {"name": "Oluwakemi Whenu", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwakemi%20Whenu%20University%20of%20Lagos&hl=en"}, {"name": "Idris Olasupo", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Idris%20Olasupo%20University%20of%20Lagos&hl=en"}, {"name": "Akeem Abayomi", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Akeem%20Abayomi%20University%20of%20Lagos&hl=en"}, {"name": "Ayorinde Nejo", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Ayorinde%20Nejo%20University%20of%20Lagos&hl=en"}, {"name": "Khadijah Abdulwahab", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Khadijah%20Abdulwahab%20University%20of%20Lagos&hl=en"}, {"name": "Josephat Izunobi", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Josephat%20Izunobi%20University%20of%20Lagos&hl=en"}, {"name": "Cordelia Dueke", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Cordelia%20Dueke%20University%20of%20Lagos&hl=en"}, {"name": "Felicia Ejiah", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Felicia%20Ejiah%20University%20of%20Lagos&hl=en"}, {"name": "Oluwatoyin Adetunde", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwatoyin%20Adetunde%20University%20of%20Lagos&hl=en"}, {"name": "Kelechi Asekunowo", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Kelechi%20Asekunowo%20University%20of%20Lagos&hl=en"}, {"name": "Oluwabusayo Semire", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Oluwabusayo%20Semire%20University%20of%20Lagos&hl=en"}, {"name": "Adetoun Akitoye", "status": "needs_search", "user_id": null, "search_url": "https://scholar.google.com/citations?view_op=search_authors&mauthors=Adetoun%20Akitoye%20University%20of%20Lagos&hl=en"}];
+        
+        function saveUserId(index, name) {
+            const input = document.getElementById('userid-' + index);
+            const userId = input.value.trim();
+            
+            if (!userId) {
+                alert('Please enter a user ID');
+                return;
+            }
+            
+            // Update data
+            staffData[index].user_id = userId;
+            staffData[index].status = 'confirmed';
+            staffData[index].url = `https://scholar.google.com/citations?user=${userId}&hl=en`;
+            delete staffData[index].search_url;
+            
+            // Update UI
+            const item = document.getElementById('staff-' + index);
+            item.className = 'staff-item confirmed';
+            item.innerHTML = `
+                <div class="name">${index+1}. ${name} ✓</div>
+                <div class="user-id">ID: ${userId}</div>
+                <div class="link"><a href="https://scholar.google.com/citations?user=${userId}&hl=en" target="_blank">View Profile</a></div>
+            `;
+            
+            // Update progress
+            const confirmed = staffData.filter(s => s.status === 'confirmed').length;
+            document.getElementById('progress').textContent = `${confirmed}/27 confirmed`;
+            
+            alert('Saved! ID: ' + userId);
+        }
+        
+        function downloadJSON() {
+            const confirmed = staffData.filter(s => s.status === 'confirmed').length;
+            if (confirmed < 27) {
+                if (!confirm(`Only ${confirmed}/27 profiles confirmed. Download anyway?`)) {
+                    return;
+                }
+            }
+            
+            const dataStr = JSON.stringify(staffData, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const url = URL.createObjectURL(dataBlob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = 'scholar_ids_collected.json';
+            link.click();
+        }
+    </script>
+</body>
+</html>
