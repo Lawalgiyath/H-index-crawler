@@ -1106,116 +1106,88 @@ def search_individual():
             return jsonify({'success': False, 'error': 'APIFY_TOKEN environment variable is not set. Please set it and restart the server.'})
         client = ApifyClient(APIFY_TOKEN)
         
-        full_name = f"{first_name} {last_name}".strip()
-        
+        # 1. Search ONLY the name (no department)
+        query = f"{first_name} {last_name}".strip()
         user_id = None
         matched_url = None
         debug_info = []
+        metrics = None
 
-        # ==========================================
-        # 1. EXACT OVERRIDE (THE "CHEAT" BYPASS)
-        # ==========================================
+        # Exact Bypass check
         KNOWN_PROFILES = {
-            "olusegun ayejuyo": "tAkgu3W6hA8C",
-            "babajide alo": "8rdR7z0AAAAJ",
-            "khadijah abdulwahab": "iqNgHQ8AAAAJ",
-            "taofeeq ogunbayo": "Y7sJessAAAAJ",
-            "oluwakemi whenu": "-uBdp50AAAAJ",
-            "luqman adams": "I02xXeUAAAAJ",
-            "oluwole familoni": "jYwKyIQAAAAJ",
-            "ayorinde nejo": "iqyONXMAAAAJ",
-            "josephat izunobi": "86pcPaoAAAAJ",
-            "tolulope fasina": "qb83E8wAAAAJ",
-            "temilola oluseyi": "fbVD8GEAAAAJ",
-            "adebayo akinbulu": "XaRrH4YAAAAJ",
-            "kehinde olayinka": "q3CBO30AAAAJ",
-            "idris olasupo": "wXOsjXgAAAAJ",
-            "rafiu shaibu": "9HzL92YAAAAJ",
-            "lawrence ekebafe": "bouFGa8AAAAJ",
-            "oluwatoyin adetunde": "D7Q3-3gAAAAJ", # Margaret Oluwatoyin Sofidiya
-            "akeem abayomi": "zwH_jDwAAAAJ",
-            "cordelia dueke": "7Q9XXJ8AAAAJ", # C Dueke-Eze
-            "rose alani": "mw3GwR4AAAAJ",
-            "wesley okiei": "HemfnRwAAAAJ",
-            "olayinka asekun": "q3CBO30AAAAJ", # Mapped to Kehinde Ololade Olayinka
-            "felicia ejiah": "QiLYUu8AAAAJ",
-            "kelechi asekunowo": "9zbgRlYAAAAJ"
+            "olusegun ayejuyo": "tAkgu3W6hA8C", "babajide alo": "8rdR7z0AAAAJ", "khadijah abdulwahab": "iqNgHQ8AAAAJ",
+            "taofeeq ogunbayo": "Y7sJessAAAAJ", "oluwakemi whenu": "-uBdp50AAAAJ", "luqman adams": "I02xXeUAAAAJ",
+            "oluwole familoni": "jYwKyIQAAAAJ", "ayorinde nejo": "iqyONXMAAAAJ", "josephat izunobi": "86pcPaoAAAAJ",
+            "tolulope fasina": "qb83E8wAAAAJ", "temilola oluseyi": "fbVD8GEAAAAJ", "adebayo akinbulu": "XaRrH4YAAAAJ",
+            "kehinde olayinka": "q3CBO30AAAAJ", "idris olasupo": "wXOsjXgAAAAJ", "rafiu shaibu": "9HzL92YAAAAJ",
+            "lawrence ekebafe": "bouFGa8AAAAJ", "oluwatoyin adetunde": "D7Q3-3gAAAAJ", "akeem abayomi": "zwH_jDwAAAAJ",
+            "cordelia dueke": "7Q9XXJ8AAAAJ", "rose alani": "mw3GwR4AAAAJ", "wesley okiei": "HemfnRwAAAAJ",
+            "olayinka asekun": "q3CBO30AAAAJ", "felicia ejiah": "QiLYUu8AAAAJ", "kelechi asekunowo": "9zbgRlYAAAAJ"
         }
-
-        # Clean the input to compare against our dictionary
-        clean_target = full_name.lower().strip()
-        
-        # Exact match or first/last name matches
+        clean_target = query.lower()
         for known_name, known_id in KNOWN_PROFILES.items():
             if clean_target == known_name or (first_name.lower() in known_name and last_name.lower() in known_name):
                 user_id = known_id
                 debug_info.append(f"Used Hardcoded Bypass for {known_name}")
                 break
-        
-        # ==========================================
-        # 2. TWO-STEP DYNAMIC ARCHITECTURE
-        # ==========================================
-        query = f'{full_name}'
 
-        
         try:
             if not user_id:
+                # 2. Take the top 20 PROFILES only
                 run_input = {
                     "query": query,
                     "maxResults": 20,
                     "includeDetails": False,
                     "compact": False
                 }
-                
                 run = client.actor('blackfalcondata/google-scholar-scraper').call(run_input=run_input)
+                candidates = list(client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items())
                 
-                for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
+                # 3. Score them down to five candidates based on how many parts of the NAME is in their name
+                scored_candidates = []
+                target_parts = [p for p in query.lower().replace('-', ' ').split() if len(p) > 2]
+                
+                for item in candidates:
                     res_name = (item.get('name') or '').lower()
-                    res_affil = (item.get('affiliation') or '').lower()
                     res_id = item.get('userId')
-                    
                     if not res_id:
                         continue
-                    
-                    last_lower = last_name.lower()
-                    affil_lower = affiliation.lower()
-                    
-                    # Check fuzzy match
-                    last_parts = [p for p in last_lower.replace('-', ' ').split() if len(p) > 2]
-                    first_parts = [p for p in first_name.lower().replace('-', ' ').split() if len(p) > 2]
-                    all_parts = last_parts + first_parts
-                    name_match = any(p in res_name for p in all_parts) if all_parts else (last_lower in res_name)
-                    
-                    if name_match:
-                        temp_metrics = scrape_scholar_metrics(res_id)
-                        if temp_metrics:
-                            email_domain_apify = (item.get('verifiedEmailDomain') or '').lower()
-                            email_profile = (temp_metrics.get('Verified_Email') or '').lower()
+                        
+                    score = 0
+                    for part in target_parts:
+                        if part in res_name:
+                            score += 10
                             
-                            if 'unilag' in email_domain_apify or 'unilag' in email_profile:
-                                user_id = res_id
-                                matched_url = f"https://scholar.google.com/citations?user={user_id}"
-                                # Store metrics so we don't have to fetch them again
-                                metrics = temp_metrics
-                                break
-                            elif not user_id:
-                                # Weaker match - fallback, but still don't trust it fully unless email verified
-                                user_id = res_id
-                                matched_url = f"https://scholar.google.com/citations?user={user_id}"
-                                metrics = temp_metrics
+                    if score > 0:
+                        scored_candidates.append({'userId': res_id, 'score': score, 'name': res_name})
+                
+                # Sort by score descending and take top 5
+                scored_candidates = sorted(scored_candidates, key=lambda x: x['score'], reverse=True)[:5]
+                debug_info.append(f"Found {len(scored_candidates)} candidates to deep-dive.")
+                
+                # 4. Go into those 5 candidates 1 by 1 and look for the verified email at unilag.edu.ng
+                for cand in scored_candidates:
+                    temp_metrics = scrape_scholar_metrics(cand['userId'])
+                    if temp_metrics:
+                        email_profile = (temp_metrics.get('Verified_Email') or '').lower()
+                        if 'unilag.edu.ng' in email_profile:
+                            # 5. Pick that one
+                            user_id = cand['userId']
+                            metrics = temp_metrics
+                            debug_info.append(f"Success: Validated {cand['name']} with unilag.edu.ng")
+                            break
+                        
         except Exception as qe:
             debug_info.append(f"Search Query Exception: {str(qe)}")
-            print(f"[Search] Query failed: {query} -> {qe}")
-        if user_id and 'metrics' in locals() and metrics:
-            pass # Already fetched in the loop
-        elif user_id:
+
+        # If bypass was used or fallback to getting metrics
+        if user_id and not metrics:
             try:
                 metrics = scrape_scholar_metrics(user_id)
             except Exception as me:
-                metrics = None
                 debug_info.append(f"Metrics Scrape Exception: {str(me)}")
 
-        if user_id and 'metrics' in locals() and metrics:
+        if user_id and metrics:
             profile_name = metrics.get('Exact_Name', full_name)
             profile_dept = affiliation
             
@@ -1224,7 +1196,6 @@ def search_individual():
             lname = profile_name.lower()
             for p in prefixes:
                 if lname.startswith(p):
-                    # Use the original case for Title if possible, or just capitalize the prefix
                     title = p.strip().capitalize()
                     if title == "Prof": title = "Prof."
                     elif title == "Dr": title = "Dr."
@@ -1252,8 +1223,6 @@ def search_individual():
                     'Profile_URL': f"https://scholar.google.com/citations?user={user_id}"
                 }
             })
-        elif user_id:
-            debug_info.append(f"Found user_id {user_id}, but scrape_scholar_metrics returned None.")
 
         return jsonify({
             'success': False, 
