@@ -342,20 +342,30 @@ def _scrape_metrics_requests(user_id):
                 from apify_client import ApifyClient
                 token = os.environ.get('APIFY_TOKEN')
                 if token:
-                    print("[Fallback] Using Apify Cheerio Scraper for metrics...")
+                    print("[Fallback] Using Apify blackfalcondata Scraper for metrics...")
                     client = ApifyClient(token)
                     run_input = {
-                        "startUrls": [{"url": profile_url}],
-                        "pageFunction": "async function pageFunction(context) { const $ = context.$; return { html: $('body').html() }; }",
-                        "proxyConfiguration": {"useApifyProxy": True}
+                        "startUrls": [profile_url],
+                        "maxItems": 1
                     }
-                    run = client.actor('apify/cheerio-scraper').call(run_input=run_input)
-                    for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
-                        html_content = item.get("html", "")
-                        break
-                if not html_content:
-                    time.sleep(random.uniform(5, 10))
-                    continue
+                    try:
+                        run = client.actor('blackfalcondata/google-scholar-scraper').call(run_input=run_input)
+                        for item in client.dataset((run.get('defaultDatasetId') if isinstance(run, dict) else run.default_dataset_id)).iterate_items():
+                            return {
+                                "Citations_All": str(item.get("citations", 0)), 
+                                "Citations_Since_2021": str(item.get("citations5y", 0)),
+                                "H_Index_All": str(item.get("hIndex", 0)), 
+                                "H_Index_Since_2021": str(item.get("hIndex5y", 0)),
+                                "I10_Index_All": str(item.get("i10Index", 0)), 
+                                "I10_Index_Since_2021": str(item.get("i10Index5y", 0)),
+                                "Exact_Name": item.get("name", ""),
+                                "Exact_Affiliation": item.get("affiliation", ""),
+                                "Verified_Email": item.get("verifiedEmailDomain", "")
+                            }
+                    except Exception as fallback_e:
+                        print(f"Fallback Error: {fallback_e}")
+                time.sleep(random.uniform(5, 10))
+                continue
             elif response.status_code != 200:
                 time.sleep(random.uniform(3, 5))
                 continue
