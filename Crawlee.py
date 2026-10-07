@@ -1123,24 +1123,8 @@ def search_individual():
         debug_info = []
         metrics = None
 
-        # Exact Bypass check
-        KNOWN_PROFILES = {
-            "olusegun ayejuyo": "tAkgu3W6hA8C", "babajide alo": "8rdR7z0AAAAJ", "khadijah abdulwahab": "iqNgHQ8AAAAJ",
-            "taofeeq ogunbayo": "Y7sJessAAAAJ", "oluwakemi whenu": "-uBdp50AAAAJ", "luqman adams": "I02xXeUAAAAJ",
-            "oluwole familoni": "jYwKyIQAAAAJ", "ayorinde nejo": "iqyONXMAAAAJ", "josephat izunobi": "86pcPaoAAAAJ",
-            "tolulope fasina": "qb83E8wAAAAJ", "temilola oluseyi": "fbVD8GEAAAAJ", "adebayo akinbulu": "XaRrH4YAAAAJ",
-            "kehinde olayinka": "q3CBO30AAAAJ", "idris olasupo": "wXOsjXgAAAAJ", "rafiu shaibu": "9HzL92YAAAAJ",
-            "lawrence ekebafe": "bouFGa8AAAAJ", "oluwatoyin adetunde": "D7Q3-3gAAAAJ", "akeem abayomi": "zwH_jDwAAAAJ",
-            "cordelia dueke": "7Q9XXJ8AAAAJ", "rose alani": "mw3GwR4AAAAJ", "wesley okiei": "HemfnRwAAAAJ",
-            "olayinka asekun": "q3CBO30AAAAJ", "felicia ejiah": "QiLYUu8AAAAJ", "kelechi asekunowo": "9zbgRlYAAAAJ"
-        }
-        clean_target = query.lower()
-        for known_name, known_id in KNOWN_PROFILES.items():
-            if clean_target == known_name or (first_name.lower() in known_name and last_name.lower() in known_name):
-                user_id = known_id
-                debug_info.append(f"Used Hardcoded Bypass for {known_name}")
-                break
-
+        # Exact Bypass check (REMOVED as per user request)
+        
         try:
             if not user_id:
                 # 2. Take the top 20 PROFILES only
